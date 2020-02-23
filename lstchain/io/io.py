@@ -392,7 +392,6 @@ def write_array_info(event, output_filename):
                             f'camera {camera_name} seems to be already present in the h5 file.'
                         )
                         continue
-
             camera.to_table().write(
                 output_filename,
                 path=f'/instrument/telescope/camera/{camera_name}',
