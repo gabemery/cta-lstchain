@@ -121,23 +121,27 @@ def main():
     plot_dl2.plot_features(dl2)
     if not args.batch:
         plt.show()
-    plt.savefig(args.path_models + '/')
+    plt.savefig(args.path_models + '/histograms.png')
 
     plot_dl2.plot_e(gammas, 10, 1.5, 3.5)
     if not args.batch:
         plt.show()
+    plt.savefig(args.path_models + '/energy_reco_gamma.png')
 
     plot_dl2.calc_resolution(gammas)
     if not args.batch:
         plt.show()
+    plt.savefig(args.path_models + '/resolution_gamma.png')
 
     plot_dl2.plot_e_resolution(gammas, 10, 1.5, 3.5)
     if not args.batch:
         plt.show()
+    plt.savefig(args.path_models + '/energy_resolution_gamma.png')
 
-    plot_dl2.energy_results(selected_gammas)
+    plot_dl2.plot_disp_vector(gammas)
     if not args.batch:
         plt.show()
+    plt.savefig(args.path_models + '/disp_reco_gamma.png')
 
     plot_dl2.direction_results(selected_gammas)
     if not args.batch:
@@ -150,6 +154,23 @@ def main():
     plot_dl2.plot_pos(dl2)
     if not args.batch:
         plt.show()
+    try:
+        ctaplot.plot_theta2(gammas.mc_alt,
+                            np.arctan(np.tan(gammas.mc_az)),
+                            src_pos_reco.alt.rad,
+                            np.arctan(np.tan(src_pos_reco.az.rad)),
+                            bins=50, range=(0, 1),
+        )
+        plt.savefig(args.path_models + '/theta2_gamma.png')
+        ctaplot.plot_angular_res_per_energy(src_pos_reco.alt.rad,
+                                            np.arctan(np.tan(src_pos_reco.az.rad)),
+                                            gammas.mc_alt,
+                                            np.arctan(np.tan(gammas.mc_az)),
+                                            gammas.mc_energy
+        )
+        plt.savefig(args.path_models + '/angular_resolution_gamma.png')
+    except:
+        pass
 
     plot_dl2.plot_roc_gamma(dl2)
     if not args.batch:
@@ -159,10 +180,34 @@ def main():
     if not args.batch:
         plt.show()
 
-    plt.hist(dl2[dl2['mc_type'] == 101]['gammaness'], bins=100)
-    plt.hist(dl2[dl2['mc_type'] == 0]['gammaness'], bins=100)
+    plot_dl2.plot_pos(dl2)
     if not args.batch:
         plt.show()
+    plt.savefig(args.path_models + '/position_reco.png')
+    plot_dl2.plot_ROC(cls_gh, dl2, classification_features, -1)
+    if not args.batch:
+        plt.show()
+    plt.savefig(args.path_models + '/roc.png')
+    plot_dl2.plot_importances(cls_gh, classification_features)
+    if not args.batch:
+        plt.show()
+    plt.savefig(args.path_models + '/features_gh.png')
+    plot_dl2.plot_importances(reg_energy, regression_features)
+    if not args.batch:
+        plt.show()
+    plt.savefig(args.path_models + '/features_energy_reco.png')
+    plot_dl2.plot_importances(reg_disp_vector, regression_features)
+    if not args.batch:
+        plt.show()
+    plt.savefig(args.path_models + '/features_disp_reco.png')
+
+    plt.hist(dl2[dl2['mc_type']==101]['gammaness'], bins=100, label="proton")
+    plt.hist(dl2[dl2['mc_type']==0]['gammaness'], bins=100, label="gamma")
+    plt.xlabel('gammaness')
+    plt.ylabel('counts')
+    plt.legend()
+    plt.savefig(args.path_models + '/gammaness.png')
+
 
 
 if __name__ == '__main__':
