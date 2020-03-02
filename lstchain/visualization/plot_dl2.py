@@ -343,6 +343,7 @@ def plot_disp_vector(data):
     axes[1].set_xlabel('mc_disp')
     axes[1].set_ylabel('reco_disp')
     axes[1].set_title('disp_dy');
+    return fig, axes
 
 
 def plot_pos(data, true_hadroness=False):
@@ -692,3 +693,4 @@ def direction_results(dl2_data, points_outfile=None, plot_outfile=None):
         fig.savefig(plot_outfile)
 
     return fig, axes
+
