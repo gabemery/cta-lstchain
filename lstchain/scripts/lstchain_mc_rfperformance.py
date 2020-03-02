@@ -26,6 +26,7 @@ from lstchain.reco import utils
 import astropy.units as u
 from lstchain.io import standard_config, replace_config, read_configuration_file
 from lstchain.io.io import dl1_params_lstcam_key
+import joblib
 
 try:
     import ctaplot
@@ -94,14 +95,9 @@ def main():
 
     config = replace_config(standard_config, custom_config)
 
-    reg_energy, reg_disp_vector, cls_gh = dl1_to_dl2.build_models(
-        args.gammafile,
-        args.protonfile,
-        save_models=args.storerf,
-        path_models=args.path_models,
-        custom_config=config,
-        dl1_params_camera_key=args.dl1_params_camera_key
-    )
+    reg_energy = joblib.load(args.path_models + '/reg_energy.sav')
+    reg_disp_vector = joblib.load(args.path_models + '/reg_disp_vector.sav')
+    cls_gh = joblib.load(args.path_models + '/cls_gh.sav')
 
     gammas = filter_events(pd.read_hdf(args.gammatest, key=args.dl1_params_camera_key),
                            config["events_filters"],
