@@ -75,6 +75,12 @@ parser.add_argument('--config', '-c', action='store', type=str,
                     default=None
                     )
 
+parser.add_argument('--cam_key', '-k', action='store', type=str,
+                    dest='dl1_params_camera_key',
+                    help='key to the camera table in the hdf5 files.',
+                    default=dl1_params_lstcam_key
+                    )
+
 args = parser.parse_args()
 
 
@@ -94,6 +100,7 @@ def main():
         save_models=args.storerf,
         path_models=args.path_models,
         custom_config=config,
+        dl1_params_camera_key=args.dl1_params_camera_key
     )
 
     gammas = filter_events(pd.read_hdf(args.gammatest, key=dl1_params_lstcam_key),
@@ -112,6 +119,19 @@ def main():
     selected_gammas = dl2.query('reco_type==0 & mc_type==0')
 
     plot_dl2.plot_features(dl2)
+    if not args.batch:
+        plt.show()
+    plt.savefig(args.path_models + '/')
+
+    plot_dl2.plot_e(gammas, 10, 1.5, 3.5)
+    if not args.batch:
+        plt.show()
+
+    plot_dl2.calc_resolution(gammas)
+    if not args.batch:
+        plt.show()
+
+    plot_dl2.plot_e_resolution(gammas, 10, 1.5, 3.5)
     if not args.batch:
         plt.show()
 
