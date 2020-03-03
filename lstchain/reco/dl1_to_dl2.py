@@ -386,7 +386,6 @@ def apply_models(dl1, classifier, reg_energy, reg_disp_vector, custom_config={})
 
     regression_features = config["regression_features"]
     classification_features = config["classification_features"]
-      
     #Reconstruction of Energy and disp_norm distance
     dl2['log_reco_energy'] = reg_energy.predict(dl2[regression_features])
     dl2['reco_energy'] = 10**(dl2['log_reco_energy'])
