@@ -598,7 +598,7 @@ def write_dataframe(dataframe, outfile, table_path, mode='a', index=False):
         )
 
 
-def write_dl2_dataframe(dataframe, outfile):
+def write_dl2_dataframe(dataframe, outfile, dl2_params_camera_key=dl2_params_lstcam_key):
     """
     Write DL2 dataframe to a HDF5 file
 
@@ -607,7 +607,7 @@ def write_dl2_dataframe(dataframe, outfile):
     dataframe: `pandas.DataFrame`
     outfile: path
     """
-    write_dataframe(dataframe, outfile=outfile, table_path=dl2_params_lstcam_key)
+    write_dataframe(dataframe, outfile=outfile, table_path=dl2_params_camera_key)
 
 
 def add_column_table(table, ColClass, col_label, values):
