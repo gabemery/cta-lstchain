@@ -147,6 +147,7 @@ true_hadroness:
              label="Protons")
     plt.ylabel(r'# of events', fontsize=15)
     plt.xlabel(r"Time gradient")
+    plt.tight_layout()
 
 
 def energy_results(dl2_data, points_outfile=None, plot_outfile=None):
@@ -329,6 +330,7 @@ def plot_disp(data, true_hadroness=False):
     plt.hist(theta2, bins=100, range=[0, 0.1], histtype=u'step')
     plt.xlabel(r'$\theta^{2}(º)$', fontsize=15)
     plt.ylabel(r'# of events', fontsize=15)
+    plt.tight_layout()
 
 
 def plot_disp_vector(data):
@@ -343,6 +345,7 @@ def plot_disp_vector(data):
     axes[1].set_xlabel('mc_disp')
     axes[1].set_ylabel('reco_disp')
     axes[1].set_title('disp_dy');
+    plt.tight_layout()
     return fig, axes
 
 
@@ -416,6 +419,7 @@ def plot_pos(data, true_hadroness=False):
     plt.title("Reconstructed position Gammas")
     plt.xlabel("x (m)")
     plt.ylabel("y (m)")
+    plt.tight_layout()
 
 
 def plot_importances(model, features_names, ax=None, **kwargs):
