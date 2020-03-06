@@ -63,7 +63,7 @@ def train_energy(train, custom_config={}):
 
     reg = model(**regression_args)
     reg.fit(train[features],
-                  train['log_mc_energy'])
+                  train['log_mc_energy'], sample_weight=train['mc_energy']**2)
 
     print("Model {} trained!".format(model))
     return reg
@@ -97,7 +97,7 @@ def train_disp_vector(train, custom_config={}, predict_features=['disp_dx', 'dis
     reg = model(**regression_args)
     x = train[features]
     y = np.transpose([train[f] for f in predict_features])
-    reg.fit(x, y)
+    reg.fit(x, y, sample_weight=train['mc_energy']**2)
 
     print("Model {} trained!".format(model))
 
@@ -130,7 +130,7 @@ def train_disp_norm(train, custom_config={}, predict_feature='disp_norm'):
     reg = model(**regression_args)
     x = train[features]
     y = np.transpose(train[predict_feature])
-    reg.fit(x, y)
+    reg.fit(x, y, sample_weight=train['mc_energy']**2)
 
     print("Model {} trained!".format(model))
 
