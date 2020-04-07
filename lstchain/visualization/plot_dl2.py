@@ -699,3 +699,4 @@ def direction_results(dl2_data, points_outfile=None, plot_outfile=None):
     return fig, axes
 
 
+
