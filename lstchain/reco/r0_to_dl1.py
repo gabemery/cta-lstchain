@@ -90,6 +90,7 @@ from ..io.lstcontainers import ExtraImageInfo
 from ..calib.camera import lst_calibration, load_calibrator_from_config
 from ..io import DL1ParametersContainer, standard_config, replace_config
 from ctapipe.image.cleaning import number_of_islands
+from ctapipe.instrument.guess import TELESCOPE_NAMES, GuessingKey, GuessingResult
 
 import tables
 from functools import partial
@@ -114,6 +115,9 @@ __all__ = [
 >>>>>>> mv file
 ]
 
+TELESCOPE_NAMES[GuessingKey(n_pixels=7420, focal_length=28.0)] =  GuessingResult(
+    type="LST", name="LST", camera_name="LSiTCam", n_mirrors=1
+)
 
 cleaning_method = tailcuts_clean
 
