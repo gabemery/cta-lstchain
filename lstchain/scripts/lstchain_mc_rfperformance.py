@@ -14,11 +14,15 @@ $>python lstchain_mc_rfperformance.py
 
 """
 
-import numpy as np
-import pandas as pd
 import argparse
+import logging
+import sys
+
 import matplotlib.pyplot as plt
-from distutils.util import strtobool
+import pandas as pd
+
+from lstchain.io import standard_config, replace_config, read_configuration_file
+from lstchain.io.io import dl1_params_lstcam_key
 from lstchain.reco import dl1_to_dl2
 from lstchain.reco.utils import filter_events
 from lstchain.visualization import plot_dl2
@@ -32,6 +36,8 @@ try:
     import ctaplot
 except ImportError as e:
     print("ctaplot not installed, some plotting function will be missing")
+
+log = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser(description="Train and Apply Random Forests.")
 
@@ -114,21 +120,10 @@ def main():
 
     selected_gammas = dl2.query('reco_type==0 & mc_type==0')
 
-    gammas = dl2[dl2.gammaness >= 0.5]
-    protons = dl2[dl2.gammaness < 0.5]
-    gammas.reco_type = 0
-    protons.reco_type = 1
+    if(len(selected_gammas) == 0):
+        log.warning('No gammas selected, I will not plot any output') 
+        sys.exit()
 
-    focal_length = 28 * u.m
-    src_pos_reco = utils.reco_source_position_sky(gammas.x.values * u.m,
-                                                  gammas.y.values * u.m,
-                                                  gammas.reco_disp_dx.values * u.m,
-                                                  gammas.reco_disp_dy.values * u.m,
-                                                  focal_length,
-                                                  gammas.mc_alt_tel.values * u.rad,
-                                                  gammas.mc_az_tel.values * u.rad)
-
-    fig = plt.figure(figsize=[14, 10])
     plot_dl2.plot_features(dl2)
     if not args.batch:
         plt.show()

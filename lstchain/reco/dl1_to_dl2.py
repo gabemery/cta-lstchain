@@ -10,8 +10,8 @@ Usage:
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-import joblib
 from sklearn.model_selection import train_test_split
+import joblib
 import os
 from . import utils
 from . import disp
@@ -309,10 +309,16 @@ def build_models(filegammas, fileprotons,
         df_gamma = pd.concat([df_gamma, pd.read_hdf(filegammas, key=dl1_params_src_dep_lstcam_key)], axis=1)
         df_proton = pd.concat([df_proton, pd.read_hdf(fileprotons, key=dl1_params_src_dep_lstcam_key)], axis=1)
 
-    df_gamma = utils.filter_events(df_gamma, filters=events_filters)
-    df_proton = utils.filter_events(df_proton, filters=events_filters)
+    df_gamma = utils.filter_events(df_gamma,
+                                   filters=events_filters,
+                                   finite_params=config['regression_features'] + config['classification_features'],
+                                   )
 
-    regression_features = config['regression_features']
+    df_proton = utils.filter_events(df_proton,
+                                    filters=events_filters,
+                                    finite_params=config['regression_features'] + config['classification_features'],
+                                    )
+
 
     #Train regressors for energy and disp_norm reconstruction, only with gammas
 
@@ -331,8 +337,8 @@ def build_models(filegammas, fileprotons,
 
     #Apply the regressors to the test set
 
-    test['log_reco_energy'] = temp_reg_energy.predict(test[regression_features])
-    disp_vector = temp_reg_disp_vector.predict(test[regression_features])
+    test['log_reco_energy'] = temp_reg_energy.predict(test[config['regression_features']])
+    disp_vector = temp_reg_disp_vector.predict(test[config['regression_features']])
     test['reco_disp_dx'] = disp_vector[:, 0]
     test['reco_disp_dy'] = disp_vector[:, 1]
 

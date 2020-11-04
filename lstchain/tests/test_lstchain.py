@@ -6,7 +6,7 @@ import shutil
 import pandas as pd
 from lstchain.io.io import dl1_params_lstcam_key, dl2_params_lstcam_key
 from lstchain.reco.utils import filter_events
-import astropy.units as u 
+import astropy.units as u
 
 test_dir = 'testfiles'
 
@@ -28,7 +28,7 @@ custom_config = {
         "length": [0, 10],
         "wl": [0, 1],
         "r": [0, 1],
-        "leakage2_intensity": [0, 1]
+        "leakage_intensity_width_2": [0, 1],
     },
     "tailcut": {
         "picture_thresh":6,
@@ -76,7 +76,9 @@ custom_config = {
   "gain_selector": "ThresholdGainSelector",
   "gain_selector_config": {
     "threshold":  4094
-  }
+  },
+  "mc_nominal_source_x_deg": 0.,
+  "mc_nominal_source_y_deg": 0.,
 }
 
 def test_import_calib():
@@ -122,7 +124,10 @@ def test_apply_models():
     import joblib
 
     dl1 = pd.read_hdf(dl1_file, key=dl1_params_lstcam_key)
-    dl1 = filter_events(dl1, filters=custom_config["events_filters"])
+    dl1 = filter_events(dl1,
+                        filters=custom_config["events_filters"],
+                        finite_params=custom_config['regression_features'] + custom_config['classification_features'],
+                        )
 
     reg_energy = joblib.load(file_model_energy)
     reg_disp = joblib.load(file_model_disp)
@@ -132,16 +137,16 @@ def test_apply_models():
     dl2 = apply_models(dl1, reg_cls_gh, reg_energy, reg_disp, custom_config=custom_config)
     dl2.to_hdf(dl2_file, key=dl2_params_lstcam_key)
 
-def produce_fake_dl1_proton_file():
+def produce_fake_dl1_proton_file(dl1_file):
     """
-    Produce a fake dl2 proton file by copying the dl2 gamma test file
+    Produce a fake dl1 proton file by copying the dl2 gamma test file
     and changing mc_type
     """
     events = pd.read_hdf(dl1_file, key=dl1_params_lstcam_key)
     events.mc_type = 101
     events.to_hdf(fake_dl1_proton_file, key=dl1_params_lstcam_key)
 
-def produce_fake_dl2_proton_file():
+def produce_fake_dl2_proton_file(dl2_file):
     """
     Produce a fake dl2 proton file by copying the dl2 gamma test file
     and changing mc_type
@@ -152,9 +157,9 @@ def produce_fake_dl2_proton_file():
 
 @pytest.mark.run(after='produce_fake_dl2_proton_file')
 def test_sensitivity():
-    from lstchain.mc.sensitivity import find_best_cuts_sensitivity, sensitivity 
+    from lstchain.mc.sensitivity import find_best_cuts_sensitivity, sensitivity
 
-    produce_fake_dl2_proton_file()
+    produce_fake_dl2_proton_file(dl2_file)
 
     nfiles_gammas = 1
     nfiles_protons = 1
@@ -214,7 +219,7 @@ def test_disp_to_pos():
 
 
 def test_change_frame_camera_sky():
-    from lstchain.reco.utils import sky_to_camera, camera_to_sky
+    from lstchain.reco.utils import sky_to_camera, camera_to_altaz
     import astropy.units as u
     x = np.random.rand(1) * u.m
     y = np.random.rand(1) * u.m
@@ -222,7 +227,7 @@ def test_change_frame_camera_sky():
     pointing_alt = np.pi/3. * u.rad
     pointing_az = 0. * u.rad
 
-    sky_pos = camera_to_sky(x, y, focal_length, pointing_alt, pointing_az)
+    sky_pos = camera_to_altaz(x, y, focal_length, pointing_alt, pointing_az)
     cam_pos = sky_to_camera(sky_pos.alt, sky_pos.az, focal_length, pointing_alt, pointing_az)
     np.testing.assert_almost_equal([x, y], [cam_pos.x, cam_pos.y], decimal=4)
 

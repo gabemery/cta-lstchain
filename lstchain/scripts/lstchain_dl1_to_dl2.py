@@ -15,12 +15,12 @@ $> python lstchain_dl1_to_dl2.py
 
 """
 
+import joblib
 import argparse
 import astropy.units as u
 import numpy as np
 import os
 import pandas as pd
-
 from tables import open_file
 import joblib
 from lstchain.reco.utils import filter_events, impute_pointing
@@ -149,11 +149,8 @@ def main():
     data = pd.read_hdf(args.input_file, key=dl1_params_lstcam_key)
 
     if config['source_dependent']:
-        data_src_dep = pd.read_hdf(args.datafile, key=dl1_params_src_dep_lstcam_key)
-        data_src_dep = data_src_dep.set_index('index', drop=True)
+        data_src_dep = pd.read_hdf(args.input_file, key=dl1_params_src_dep_lstcam_key)
         data = pd.concat([data, data_src_dep], axis=1)
-
-
   
 =======
     data = pd.read_hdf(args.datafile, key=args.dl1_params_camera_key)
@@ -168,7 +165,12 @@ def main():
         else:
             data.alt_tel = - np.pi/2.
             data.az_tel = - np.pi/2.
-    data = filter_events(data, filters=config["events_filters"])
+
+    data = filter_events(data,
+                         filters=config["events_filters"],
+                         finite_params=config['regression_features'] + config['classification_features'],
+                         )
+
 
 <<<<<<< HEAD
 =======
