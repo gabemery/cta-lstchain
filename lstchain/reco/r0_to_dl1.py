@@ -23,7 +23,7 @@ from ctapipe.image import (
     tailcuts_clean,
 )
 from ctapipe.image.morphology import number_of_islands
-from ctapipe.instrument import OpticsDescription
+from ctapipe.instrument import OpticsDescription, CameraGeometry
 from ctapipe.io import event_source, HDF5TableWriter
 from ctapipe.utils import get_dataset_path
 from traitlets.config import Config
@@ -74,10 +74,6 @@ __all__ = [
     'get_dl1',
     'r0_to_dl1',
 ]
-
-TELESCOPE_NAMES[GuessingKey(n_pixels=7420, focal_length=28.0)] =  GuessingResult(
-    type="LST", name="LST", camera_name="LSiTCam", n_mirrors=1
-)
 
 cleaning_method = tailcuts_clean
 
