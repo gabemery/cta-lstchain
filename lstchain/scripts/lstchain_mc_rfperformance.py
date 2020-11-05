@@ -14,15 +14,18 @@ $>python lstchain_mc_rfperformance.py
 
 """
 
+
+import numpy as np
+from os.path import join
 import argparse
 import logging
 import sys
 
 import matplotlib.pyplot as plt
+import joblib
+from distutils.util import strtobool
 import pandas as pd
 
-from lstchain.io import standard_config, replace_config, read_configuration_file
-from lstchain.io.io import dl1_params_lstcam_key
 from lstchain.reco import dl1_to_dl2
 from lstchain.reco.utils import filter_events
 from lstchain.visualization import plot_dl2
@@ -125,6 +128,7 @@ def main():
         sys.exit()
 
     plot_dl2.plot_features(dl2)
+    plt.gcf().savefig(join(args.path_models, 'features.pdf'))
     if not args.batch:
         plt.show()
     plt.savefig(args.path_models + '/histograms.png')
@@ -155,11 +159,13 @@ def main():
     plt.savefig(args.path_models + '/disp_reco_gamma.png')
     plt.close(fig)
 
-    plot_dl2.plot_disp_vector(selected_gammas)
+    fig, axes = plot_dl2.plot_disp_vector(selected_gammas)
+    fig.savefig(join(args.path_models, 'disp.pdf'))
     if not args.batch:
         plt.show()
 
     plot_dl2.plot_pos(dl2)
+    plt.gcf().savefig(join(args.path_models, 'position.pdf'))
     if not args.batch:
         plt.show()
     try:
@@ -185,11 +191,13 @@ def main():
     except:
         pass
 
-    plot_dl2.plot_roc_gamma(dl2)
+    axes = plot_dl2.plot_roc_gamma(dl2)
+    axes.get_figure().savefig(join(args.path_models, 'roc.pdf'))
     if not args.batch:
         plt.show()
 
-    plot_dl2.plot_models_features_importances(args.path_models, args.config_file)
+    axes = plot_dl2.plot_models_features_importances(args.path_models, args.config_file)
+    axes[0].get_figure().savefig(join(args.path_models, 'feature_importance.pdf'))
     if not args.batch:
         plt.show()
 

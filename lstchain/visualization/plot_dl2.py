@@ -350,6 +350,8 @@ def plot_disp_vector(data):
     plt.tight_layout()
     return fig, axes
 
+    return fig, axes
+
 
 def plot_pos(data, true_hadroness=False):
     """Plot the performance of reconstructed position

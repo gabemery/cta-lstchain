@@ -16,6 +16,15 @@ import numpy as np
 import pandas as pd
 import tables
 from astropy.table import Table
+
+from traitlets.config import Config
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+
+from ctapipe.utils import get_dataset_path
+from ctapipe.io import event_source, HDF5TableWriter
+from ctapipe.instrument import OpticsDescription, CameraGeometry
+
 from ctapipe.image import (
     HillasParameterizationError,
     hillas_parameters,
@@ -40,6 +49,13 @@ from ..calib.camera.r0 import LSTR0Corrections
 from ..datachecks.dl1_checker import check_dl1
 from ..image.muon import analyze_muon_event, tag_pix_thr
 from ..image.muon import create_muon_table, fill_muon_event
+
+from ..paths import parse_r0_filename, run_to_dl1_filename, r0_to_dl1_filename
+from ..visualization.camera import display_dl1_event, display_array_camera
+from .reconstructor import TimeWaveformFitter, NormalizedPulseTemplate
+
+
+
 from ..io import (
     DL1ParametersContainer,
     replace_config,
@@ -83,6 +99,8 @@ filters = tables.Filters(
     fletcher32=True,        # attach a checksum to each chunk for error correction
     bitshuffle=False,       # for BLOSC, shuffle bits for better compression
 )
+
+geom = CameraGeometry.from_name('LSTCam')
 
 
 def get_dl1(
@@ -168,7 +186,122 @@ def get_dl1(
         # image:
         dl1_container.set_telescope_info(subarray, telescope_id)
 
+
+def get_dl1_lh_fit(
+    calibrated_event,
+    telescope_id,
+    dl1_container,
+    normalized_pulse_template,
+    image,
+    custom_config={},
+    geometry=geom,
+    use_main_island=True,):
+
+    lh_fit_config = custom_config['lh_fit_config']
+    tel = calibrated_event.inst.subarray.tels[telescope_id]
+    waveform = calibrated_event.r0.tel[telescope_id].waveform
+    n_channels, n_pixels, n_samples = waveform.shape
+    baseline = np.atleast_3d(calibrated_event.mc.tel[telescope_id].pedestal) / n_samples
+    waveform = (waveform - baseline)
+    selected_gains = calibrated_event.r1.tel[telescope_id].selected_gain_channel
+    flat_field = 1 / calibrated_event.mc.tel[telescope_id].dc_to_pe
+    flat_field = flat_field / np.mean(flat_field, axis=-1)[:, None]
+
+    mask_high = (selected_gains == 0)
+
+    waveform = waveform[0] * mask_high[:, None] + waveform[1] * (~mask_high[:, None])
+    error = None #np.ones(waveform.shape) * 0.00001
+
+    gain_low = np.ones(n_pixels) * lh_fit_config['gain_low']
+    gain_high = np.ones(n_pixels) * lh_fit_config['gain_high']
+    gain = np.array([gain_high, gain_low]) * flat_field
+
+    gain = gain[0] * mask_high + gain[1] * (~mask_high)
+    sigma_s = np.ones(n_pixels) * lh_fit_config['sigma_s'] * gain
+    baseline = np.zeros(n_pixels)
+    crosstalk = np.ones(n_pixels) * lh_fit_config['crosstalk']
+
+    v = dl1_container.time_gradient
+    psi = dl1_container.psi.to(u.rad).value
+    if v < 0:
+        if psi >= 0:
+            psi = psi - np.pi
+        else:
+            psi = psi + np.pi
+
+    start_parameters = {'x_cm': dl1_container.x.to(u.m).value,
+                        'y_cm': dl1_container.y.to(u.m).value,
+                   'charge': dl1_container.intensity,
+                   't_cm': dl1_container.intercept - normalized_pulse_template.compute_time_of_max(),
+                   'v': np.abs(v),
+                   'psi': psi,
+                   'width': dl1_container.width.to(u.m).value,
+                   'length': dl1_container.length.to(u.m).value}
+
+    if start_parameters['t_cm'] == np.nan:
+
+        start_parameters['t_cm'] = 0.
+    if start_parameters['v'] == np.nan:
+        start_parameters['v'] = 40
+
+    t_max = n_samples * 1
+    d_min = (np.sqrt(geom.pix_area.to(u.m**2).value) / 2).min()
+    v_min, v_max = 0,  t_max / d_min
+    r_max = np.sqrt(geom.pix_x**2 + geom.pix_y**2).to(u.m).value.max()
+
+    bound_parameters={'x_cm': (geom.pix_x.to(u.m).value.min(), geom.pix_x.to(u.m).value.max()),
+                      'y_cm': (geom.pix_y.to(u.m).value.min(), geom.pix_y.to(u.m).value.max()),
+                   'charge': (0, dl1_container.intensity * 10),
+                   't_cm': (-10, t_max + 10),
+                   'v': (v_min, v_max),
+                   'psi': (-np.pi, np.pi),
+                   'width': (0, r_max),
+                   'length': (0, r_max), }
+
+    try:
+
+        fitter = TimeWaveformFitter(waveform=waveform,
+                                image=image,
+                                error=error,
+                                n_peaks=lh_fit_config['n_peaks'],
+                                sigma_s=sigma_s,
+                                geometry=geometry, dt=1,
+                                n_samples=n_samples,
+                                template=normalized_pulse_template,
+                                gain=gain, baseline=baseline, crosstalk=crosstalk,
+                                sigma_space=lh_fit_config['sigma_space'],
+                                sigma_time=lh_fit_config['sigma_time'],
+                                time_before_shower=lh_fit_config['time_before_shower'],
+                                time_after_shower=lh_fit_config['time_after_shower'],
+                                start_parameters=start_parameters,
+                                bound_parameters=bound_parameters,
+                                )
+        # fitter.fill_event(waveform, np.ones(waveform.shape))
+
+        fitter.predict(dl1_container, verbose=lh_fit_config['verbose'], ncall=lh_fit_config['ncall'])
+
+        if lh_fit_config['verbose']:
+            axes = fitter.plot(init=True)
+            axes.axes.get_figure().savefig('event/start.png')
+
+            axes = fitter.plot_waveforms()
+            axes.get_figure().savefig('event/waveforms.png')
+
+            axes = fitter.plot()
+            axes.axes.get_figure().savefig('event/end.png')
+
+            for params in fitter.start_parameters.keys():
+                axes = fitter.plot_likelihood(params)
+                axes.get_figure().savefig('event/' + params + '.png')
+
+            input()
+    except Exception as e:
+
+        print('Could not fit : ', e)
+        return None
+
     return dl1_container
+  
 
 def r0_to_dl1(
     input_filename=get_dataset_path('gamma_test_large.simtel.gz'),
@@ -318,6 +451,8 @@ def r0_to_dl1(
             metadata=metadata,
         )
 
+    pulse_template = NormalizedPulseTemplate.load('/home/cyril.alispach/ctasoft/lstchain/prod3_cfg/LST-PMT-pulse_shape.dat')
+
     with HDF5TableWriter(
         filename=output_filename,
         group_name='dl1/event',
@@ -359,7 +494,7 @@ def r0_to_dl1(
         previous_ucts_time_unix = []
         previous_ucts_trigger_type = []
 
-        for i, event in enumerate(chain([first_event],  event_iter)):
+        for i, event in tqdm(enumerate(chain([first_event],  event_iter))):
 
             if i % 100 == 0:
                 logger.info(i)
@@ -368,7 +503,9 @@ def r0_to_dl1(
             event.mc.prefix = 'mc'
             event.trigger.prefix = ''
 
+
             dl1_container.reset()
+
 
             # write sub tables
             if is_simu:
@@ -440,7 +577,21 @@ def r0_to_dl1(
                                          dl1_container=dl1_container,
                                          custom_config=config,
                                          use_main_island=True)
+                    image = event.dl1.tel[telescope_id].image
 
+                    if ('lh_fit_config' in config.keys()) and (dl1_filled is not None):
+                        is_saturated = np.any(image > config['lh_fit_config']['n_peaks'])
+
+                        if not is_saturated:
+
+
+                            dl1_filled = get_dl1_lh_fit(event,
+                                                        telescope_id,
+                                                        image=image,
+                                                        normalized_pulse_template=pulse_template,
+                                                        dl1_container=dl1_filled,
+                                                        custom_config=config,
+                                                        use_main_island=True)
                 except HillasParameterizationError:
                     logging.exception(
                         'HillasParameterizationError in get_dl1()'
