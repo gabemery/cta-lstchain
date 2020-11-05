@@ -17,8 +17,6 @@ import pandas as pd
 import tables
 from astropy.table import Table
 from traitlets.config import Config
-import matplotlib.pyplot as plt
-from tqdm import tqdm
 
 from ctapipe.utils import get_dataset_path
 from ctapipe.io import event_source, HDF5TableWriter
@@ -94,7 +92,7 @@ filters = tables.Filters(
     bitshuffle=False,       # for BLOSC, shuffle bits for better compression
 )
 
-geom = CameraGeometry.from_name('LSTCam')
+geom = CameraGeometry.from_name('LSTCam') #TODO check if global variable needed and camera type hard coded
 
 
 def get_dl1(
@@ -187,16 +185,17 @@ def get_dl1(
 
 def get_dl1_lh_fit(
     calibrated_event,
+    subarray,
     telescope_id,
     dl1_container,
     normalized_pulse_template,
     image,
     custom_config={},
-    geometry=geom,
+    geometry=geom, #TODO check why default value, check why the global variable is still used in the function
     use_main_island=True,):
 
     lh_fit_config = custom_config['lh_fit_config']
-    tel = calibrated_event.inst.subarray.tels[telescope_id]
+    telescope = subarray.tel[telescope_id] #useless? used for geometry in get dl1 function
     waveform = calibrated_event.r0.tel[telescope_id].waveform
     n_channels, n_pixels, n_samples = waveform.shape
     baseline = np.atleast_3d(calibrated_event.mc.tel[telescope_id].pedestal) / n_samples
@@ -205,6 +204,13 @@ def get_dl1_lh_fit(
     flat_field = 1 / calibrated_event.mc.tel[telescope_id].dc_to_pe
     flat_field = flat_field / np.mean(flat_field, axis=-1)[:, None]
 
+    # convert back to ctapipe's width and length (in m) from deg TODO inneficient, may need to move the original conversion 
+    foclen = subarray.tel[telescope_id].optics.equivalent_focal_length
+    width = foclen*np.tan(np.deg2rad(dl1_container.width))
+    length = foclen*np.tan(np.deg2rad(dl1_container.length))
+    dl1_container.width = width
+    dl1_container.length = length
+    
     mask_high = (selected_gains == 0)
 
     waveform = waveform[0] * mask_high[:, None] + waveform[1] * (~mask_high[:, None])
@@ -277,6 +283,13 @@ def get_dl1_lh_fit(
         # fitter.fill_event(waveform, np.ones(waveform.shape))
 
         fitter.predict(dl1_container, verbose=lh_fit_config['verbose'], ncall=lh_fit_config['ncall'])
+
+        # convert ctapipe's width and length (in m) to deg: #TODO see previous
+        foclen = subarray.tel[telescope_id].optics.equivalent_focal_length
+        width = np.rad2deg(np.arctan2(dl1_container.width, foclen))
+        length = np.rad2deg(np.arctan2(dl1_container.length, foclen))
+        dl1_container.width = width
+        dl1_container.length = length
 
         if lh_fit_config['verbose']:
             axes = fitter.plot(init=True)
@@ -489,7 +502,7 @@ def r0_to_dl1(
         previous_ucts_time_unix = []
         previous_ucts_trigger_type = []
 
-        for i, event in tqdm(enumerate(chain([first_event],  event_iter))):
+        for i, event in enumerate(chain([first_event],  event_iter)):
 
             # if i % 100 == 0:
             #     print(i)
@@ -497,6 +510,8 @@ def r0_to_dl1(
             event.dl0.prefix = ''
             event.mc.prefix = 'mc'
             event.trigger.prefix = ''
+
+            dl1_container.reset()
 
             # write sub tables
             if is_simu:
@@ -593,9 +608,10 @@ def r0_to_dl1(
                     if ('lh_fit_config' in config.keys()) and (dl1_filled is not None):
                         is_saturated = np.any(image > config['lh_fit_config']['n_peaks'])
 
-                        if not is_saturated:
+                        if not is_saturated: #reject computationnally expensive events which would be poorly estimate with the selected value of n_peak TODO : improve to not reject events
 
 
+<<<<<<< HEAD
                             dl1_filled = get_dl1_lh_fit(event, telescope_id,
                                                     image=image,
                                                     normalized_pulse_template=pulse_template,
@@ -607,6 +623,16 @@ def r0_to_dl1(
                     # plt.show()
 >>>>>>> import log-gaussian
 
+=======
+                            dl1_filled = get_dl1_lh_fit(event,
+                                                        subarray,
+                                                        telescope_id,
+                                                        image=image,
+                                                        normalized_pulse_template=pulse_template,
+                                                        dl1_container=dl1_filled,
+                                                        custom_config=config,
+                                                        use_main_island=True)
+>>>>>>> modifying the lhfit to be compatible with 0.6.3 and adding TODOs
                 except HillasParameterizationError:
                     logging.exception(
                         'HillasParameterizationError in get_dl1()'
