@@ -22,8 +22,6 @@ import logging
 import sys
 
 import matplotlib.pyplot as plt
-import joblib
-from distutils.util import strtobool
 import pandas as pd
 
 from lstchain.reco import dl1_to_dl2

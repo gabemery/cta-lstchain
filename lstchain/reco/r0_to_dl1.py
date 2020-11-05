@@ -17,12 +17,6 @@ import pandas as pd
 import tables
 from astropy.table import Table
 
-from traitlets.config import Config
-
-from ctapipe.utils import get_dataset_path
-from ctapipe.io import event_source, HDF5TableWriter
-from ctapipe.instrument import OpticsDescription, CameraGeometry
-
 from ctapipe.image import (
     HillasParameterizationError,
     hillas_parameters,
@@ -47,9 +41,6 @@ from ..calib.camera.r0 import LSTR0Corrections
 from ..datachecks.dl1_checker import check_dl1
 from ..image.muon import analyze_muon_event, tag_pix_thr
 from ..image.muon import create_muon_table, fill_muon_event
-
-from ..paths import parse_r0_filename, run_to_dl1_filename, r0_to_dl1_filename
-from ..visualization.camera import display_dl1_event, display_array_camera
 from .reconstructor import TimeWaveformFitter, NormalizedPulseTemplate
 
 
