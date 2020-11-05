@@ -64,7 +64,6 @@ __all__ = [
     'r0_to_dl1',
 ]
 
-
 cleaning_method = tailcuts_clean
 
 
