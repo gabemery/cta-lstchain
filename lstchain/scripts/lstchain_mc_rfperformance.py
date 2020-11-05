@@ -14,13 +14,18 @@ $>python lstchain_mc_rfperformance.py
 
 """
 
+
 import numpy as np
-import pandas as pd
 from os.path import join
 import argparse
+import logging
+import sys
+
 import matplotlib.pyplot as plt
 import joblib
 from distutils.util import strtobool
+import pandas as pd
+
 from lstchain.reco import dl1_to_dl2
 from lstchain.reco.utils import filter_events
 from lstchain.visualization import plot_dl2
@@ -28,11 +33,14 @@ from lstchain.reco import utils
 import astropy.units as u
 from lstchain.io import standard_config, replace_config, read_configuration_file
 from lstchain.io.io import dl1_params_lstcam_key
+import joblib
 
 try:
     import ctaplot
 except ImportError as e:
     print("ctaplot not installed, some plotting function will be missing")
+
+log = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser(description="Train and Apply Random Forests.")
 
@@ -77,6 +85,12 @@ parser.add_argument('--config', '-c', action='store', type=str,
                     default=None
                     )
 
+parser.add_argument('--cam_key', '-k', action='store', type=str,
+                    dest='dl1_params_camera_key',
+                    help='key to the camera table in the hdf5 files.',
+                    default=dl1_params_lstcam_key
+                    )
+
 args = parser.parse_args()
 
 
@@ -90,29 +104,14 @@ def main():
 
     config = replace_config(standard_config, custom_config)
 
-    """
-    reg_energy, reg_disp_vector, cls_gh = dl1_to_dl2.build_models(
-        args.gammafile,
-        args.protonfile,
-        save_models=args.storerf,
-        path_models=args.path_models,
-        custom_config=config,
-    )
-    """
-    # LOAD models
+    reg_energy = joblib.load(args.path_models + '/reg_energy.sav')
+    reg_disp_vector = joblib.load(args.path_models + '/reg_disp_vector.sav')
+    cls_gh = joblib.load(args.path_models + '/cls_gh.sav')
 
-    file_reg_energy = join(args.path_models, "reg_energy.sav")
-    file_reg_disp_vector = join(args.path_models, "reg_disp_vector.sav")
-    file_cls_gh = join(args.path_models, "cls_gh.sav")
-    reg_energy = joblib.load(file_reg_energy)
-    reg_disp_vector = joblib.load(file_reg_disp_vector)
-    cls_gh = joblib.load(file_cls_gh)
-
-
-    gammas = filter_events(pd.read_hdf(args.gammatest, key=dl1_params_lstcam_key),
+    gammas = filter_events(pd.read_hdf(args.gammatest, key=args.dl1_params_camera_key),
                            config["events_filters"],
                            )
-    proton = filter_events(pd.read_hdf(args.protontest, key=dl1_params_lstcam_key),
+    proton = filter_events(pd.read_hdf(args.protontest, key=args.dl1_params_camera_key),
                            config["events_filters"],
                            )
 
@@ -124,18 +123,41 @@ def main():
 
     selected_gammas = dl2.query('reco_type==0 & mc_type==0')
 
+    if(len(selected_gammas) == 0):
+        log.warning('No gammas selected, I will not plot any output') 
+        sys.exit()
+
     plot_dl2.plot_features(dl2)
     plt.gcf().savefig(join(args.path_models, 'features.pdf'))
     if not args.batch:
         plt.show()
+    plt.savefig(args.path_models + '/histograms.png')
+    plt.close(fig)
 
-    plot_dl2.energy_results(selected_gammas, plot_outfile=join(args.path_models, 'energy.pdf'))
+    fig = plt.figure(figsize=[14, 10])
+    plot_dl2.plot_e(gammas, 10, 1.5, 3.5)
     if not args.batch:
         plt.show()
+    plt.savefig(args.path_models + '/energy_reco_gamma.png')
+    plt.close(fig)
 
-    plot_dl2.direction_results(selected_gammas, plot_outfile=join(args.path_models, 'direction.pdf'))
+    fig = plt.figure(figsize=[14, 10])
+    plot_dl2.calc_resolution(gammas)
     if not args.batch:
         plt.show()
+    plt.savefig(args.path_models + '/resolution_gamma.png')
+    plt.close(fig)
+
+    fig = plt.figure(figsize=[14, 10])
+    plot_dl2.plot_e_resolution(gammas, 10, 1.5, 3.5)
+    if not args.batch:
+        plt.show()
+    plt.savefig(args.path_models + '/energy_resolution_gamma.png')
+    plt.close(fig)
+
+    fig, _ = plot_dl2.plot_disp_vector(gammas)
+    plt.savefig(args.path_models + '/disp_reco_gamma.png')
+    plt.close(fig)
 
     fig, axes = plot_dl2.plot_disp_vector(selected_gammas)
     fig.savefig(join(args.path_models, 'disp.pdf'))
@@ -146,6 +168,28 @@ def main():
     plt.gcf().savefig(join(args.path_models, 'position.pdf'))
     if not args.batch:
         plt.show()
+    try:
+        fig = plt.figure(figsize=[14, 10])
+        ctaplot.plot_theta2(gammas.mc_alt,
+                            np.arctan(np.tan(gammas.mc_az)),
+                            src_pos_reco.alt.rad,
+                            np.arctan(np.tan(src_pos_reco.az.rad)),
+                            bins=50, range=(0, 1),
+        )
+        plt.savefig(args.path_models + '/theta2_gamma.png')
+        plt.close(fig)
+
+        fig = plt.figure(figsize=[14, 10])
+        ctaplot.plot_angular_res_per_energy(src_pos_reco.alt.rad,
+                                            np.arctan(np.tan(src_pos_reco.az.rad)),
+                                            gammas.mc_alt,
+                                            np.arctan(np.tan(gammas.mc_az)),
+                                            gammas.mc_energy
+        )
+        plt.savefig(args.path_models + '/angular_resolution_gamma.png')
+        plt.close(fig)
+    except:
+        pass
 
     axes = plot_dl2.plot_roc_gamma(dl2)
     axes.get_figure().savefig(join(args.path_models, 'roc.pdf'))
@@ -157,12 +201,49 @@ def main():
     if not args.batch:
         plt.show()
 
-    fig = plt.figure()
-    plt.hist(dl2[dl2['mc_type'] == 101]['gammaness'], bins=100)
-    plt.hist(dl2[dl2['mc_type'] == 0]['gammaness'], bins=100)
-    fig.savefig(join(args.path_models, 'gammaness.pdf'))
+    fig = plt.figure(figsize=[14, 10])
+    plot_dl2.plot_pos(dl2)
     if not args.batch:
         plt.show()
+    plt.savefig(args.path_models + '/position_reco.png')
+    plt.close(fig)
+
+    fig = plt.figure(figsize=[14, 10])
+    plot_dl2.plot_ROC(cls_gh, dl2, classification_features, -1)
+    if not args.batch:
+        plt.show()
+    plt.savefig(args.path_models + '/roc.png')
+    plt.close(fig)
+
+    fig = plt.figure(figsize=[14, 10])
+    plot_dl2.plot_importances(cls_gh, classification_features)
+    if not args.batch:
+        plt.show()
+    plt.savefig(args.path_models + '/features_gh.png')
+    plt.close(fig)
+
+    fig = plt.figure(figsize=[14, 10])
+    plot_dl2.plot_importances(reg_energy, regression_features)
+    if not args.batch:
+        plt.show()
+    plt.savefig(args.path_models + '/features_energy_reco.png')
+    plt.close(fig)
+
+    fig = plt.figure(figsize=[14, 10])
+    plot_dl2.plot_importances(reg_disp_vector, regression_features)
+    if not args.batch:
+        plt.show()
+    plt.savefig(args.path_models + '/features_disp_reco.png')
+    plt.close(fig)
+
+    fig = plt.figure(figsize=[14, 10])
+    plt.hist(dl2[dl2['mc_type']==101]['gammaness'], bins=100, label="proton")
+    plt.hist(dl2[dl2['mc_type']==0]['gammaness'], bins=100, label="gamma")
+    plt.xlabel('gammaness')
+    plt.ylabel('counts')
+    plt.legend()
+    plt.savefig(args.path_models + '/gammaness.png')
+    plt.close(fig)
 
 
 if __name__ == '__main__':

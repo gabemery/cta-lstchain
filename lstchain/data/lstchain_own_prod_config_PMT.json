@@ -1,11 +1,11 @@
 {
   "events_filters": {
-    "intensity": [0, Infinity],
-    "width": [0, Infinity],
-    "length": [0, Infinity],
+    "intensity": [0, 1e10],
+    "width": [0, 1e6],
+    "length": [0, 1e6],
     "wl": [0, 1],
     "r": [0, 1],
-    "leakage_intensity_width_2": [0, 1]
+    "leakage": [0, 0.2]
   },
 
   "tailcut": {
@@ -16,9 +16,9 @@
   },
 
     "random_forest_regressor_args": {
-    "max_depth": 50,
+    "max_depth": 30,
     "min_samples_leaf": 2,
-    "n_jobs": 4,
+    "n_jobs": 16,
     "n_estimators": 150,
     "bootstrap": true,
     "criterion": "mse",
@@ -27,7 +27,7 @@
     "min_impurity_decrease": 0.0,
     "min_impurity_split": null,
     "min_samples_split": 2,
-    "min_weight_fraction_leaf": 0.0,
+    "min_weight_fraction_leaf": 0.01,
     "oob_score": false,
     "random_state": 42,
     "verbose": 0,
@@ -35,13 +35,13 @@
   },
 
   "random_forest_classifier_args": {
-    "max_depth": 100,
+    "max_depth": 30,
     "min_samples_leaf": 2,
-    "n_jobs": 4,
-    "n_estimators": 100,
+    "n_jobs": 16,
+    "n_estimators": 150,
     "criterion": "gini",
-    "min_samples_split": 2,
-    "min_weight_fraction_leaf": 0.0,
+    "min_samples_split": 5,
+    "min_weight_fraction_leaf": 0.01,
     "max_features": "auto",
     "max_leaf_nodes": null,
     "min_impurity_decrease": 0.0,
@@ -58,58 +58,52 @@
     "log_intensity",
     "width",
     "length",
+    "x",
+    "y",
+    "psi",
+    "phi",
     "wl",
-    "skewness_from_source",
+    "skewness",
     "kurtosis",
-    "time_gradient_from_source",
-    "leakage_intensity_width_2",
-    "n_islands",
-    "dist"
+    "r",
+    "time_gradient",
+    "leakage",
+    "n_islands"
   ],
 
   "classification_features": [
     "log_intensity",
     "width",
     "length",
+    "x",
+    "y",
+    "psi",
+    "phi",
     "wl",
-    "skewness_from_source",
+    "skewness",
     "kurtosis",
-    "time_gradient_from_source",
-    "leakage_intensity_width_2",
+    "r",
+    "time_gradient",
+    "leakage",
     "n_islands",
     "log_reco_energy",
-    "dist"
+    "reco_disp_dx",
+    "reco_disp_dy"
   ],
 
-  "allowed_tels": [1, 2, 3, 4],
+  "allowed_tels": [3, 4, 5, 6],
   "max_events": null,
   "custom_calibration": false,
   "write_pe_image": false,
-  "mc_image_scaling_factor": 1,
   "image_extractor": "LocalPeakWindowSum",
-  "image_extractor_for_muons": "GlobalPeakWindowSum",
   "image_extractor_config": {},
   "gain_selector": "ThresholdGainSelector",
   "gain_selector_config": {
-    "threshold":  3500
+    "threshold":  16
   },
   "LocalPeakWindowSum":{
      "window_shift": 4,
      "window_width":8
     },
-  "GlobalPeakWindowSum":{
-     "window_shift": 4,
-     "window_width":8
-    },
-  "timestamps_pointing":"ucts",
-
-  "source_dependent": true,
-  "mc_nominal_source_x_deg": 0.4,
-  "mc_nominal_source_y_deg": 0.0,
-
-  "volume_reducer":{
-    "algorithm": null,
-    "parameters": {
-    }
-  }
+  "timestamps_pointing":"ucts"
 }

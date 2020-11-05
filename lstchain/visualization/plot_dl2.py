@@ -4,27 +4,29 @@ Usage:
 "import plot_dl2"
 """
 import os
-import numpy as np
-import joblib
-import matplotlib.pyplot as plt
-from scipy.stats import norm
-from ..io.config import get_standard_config, read_configuration_file
-import ctaplot
+
 import astropy.units as u
-from astropy.table import Table
-from astropy.io.misc.hdf5 import write_table_hdf5, read_table_hdf5
+import ctaplot
+import joblib
 import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+from astropy.io.misc.hdf5 import write_table_hdf5, read_table_hdf5
+from astropy.table import Table
+from scipy.stats import norm
+
+from ..io.config import get_standard_config, read_configuration_file
 
 __all__ = [
-    'plot_features',
+    'direction_results',
+    'energy_results',
     'plot_disp',
     'plot_disp_vector',
+    'plot_energy_resolution',
+    'plot_features',
+    'plot_importances',
     'plot_pos',
     'plot_roc_gamma',
-    'plot_importances',
-    'plot_energy_resolution',
-    'energy_results',
-    'direction_results'
 ]
 
 
@@ -147,6 +149,7 @@ true_hadroness:
              label="Protons")
     plt.ylabel(r'# of events', fontsize=15)
     plt.xlabel(r"Time gradient")
+    plt.tight_layout()
 
 
 def energy_results(dl2_data, points_outfile=None, plot_outfile=None):
@@ -329,6 +332,7 @@ def plot_disp(data, true_hadroness=False):
     plt.hist(theta2, bins=100, range=[0, 0.1], histtype=u'step')
     plt.xlabel(r'$\theta^{2}(º)$', fontsize=15)
     plt.ylabel(r'# of events', fontsize=15)
+    plt.tight_layout()
 
 
 def plot_disp_vector(data):
@@ -343,6 +347,8 @@ def plot_disp_vector(data):
     axes[1].set_xlabel('mc_disp')
     axes[1].set_ylabel('reco_disp')
     axes[1].set_title('disp_dy');
+    plt.tight_layout()
+    return fig, axes
 
     return fig, axes
 
@@ -417,6 +423,7 @@ def plot_pos(data, true_hadroness=False):
     plt.title("Reconstructed position Gammas")
     plt.xlabel("x (m)")
     plt.ylabel("y (m)")
+    plt.tight_layout()
 
 
 def plot_importances(model, features_names, ax=None, **kwargs):
@@ -696,3 +703,6 @@ def direction_results(dl2_data, points_outfile=None, plot_outfile=None):
         fig.savefig(plot_outfile)
 
     return fig, axes
+
+
+

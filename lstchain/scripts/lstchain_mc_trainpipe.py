@@ -20,6 +20,7 @@ import argparse
 from lstchain.reco import dl1_to_dl2
 from distutils.util import strtobool
 from lstchain.io.config import read_configuration_file
+from lstchain.io.io import dl1_params_lstcam_key
 
 parser = argparse.ArgumentParser(description="Train Random Forests.")
 
@@ -50,6 +51,11 @@ parser.add_argument('--config', '-c', action='store', type=str,
                     default=None
                     )
 
+parser.add_argument('--cam_key', '-k', action='store', type=str,
+                    dest='dl1_params_camera_key',
+                    help='key to the camera table in the hdf5 files.',
+                    default=dl1_params_lstcam_key
+                    )
 
 args = parser.parse_args()
 
@@ -69,6 +75,7 @@ def main():
                             save_models=args.storerf,
                             path_models=args.path_models,
                             custom_config=config,
+                            dl1_params_camera_key=args.dl1_params_camera_key
                             )
 
 
