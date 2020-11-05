@@ -346,7 +346,6 @@ def plot_disp_vector(data):
     axes[1].set_ylabel('reco_disp')
     axes[1].set_title('disp_dy');
 
-    return fig, axes
 
 
 def plot_pos(data, true_hadroness=False):

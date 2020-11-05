@@ -16,18 +16,13 @@ import numpy as np
 import pandas as pd
 import tables
 from astropy.table import Table
-from traitlets.config import Config
-
-from ctapipe.utils import get_dataset_path
-from ctapipe.io import event_source, HDF5TableWriter
-from ctapipe.instrument import OpticsDescription, CameraGeometry
 from ctapipe.image import (
     HillasParameterizationError,
     hillas_parameters,
     tailcuts_clean,
 )
 from ctapipe.image.morphology import number_of_islands
-from ctapipe.instrument import OpticsDescription
+from ctapipe.instrument import OpticsDescription, CameraGeometry
 from ctapipe.io import event_source, HDF5TableWriter
 from ctapipe.utils import get_dataset_path
 from traitlets.config import Config
@@ -45,8 +40,6 @@ from ..calib.camera.r0 import LSTR0Corrections
 from ..datachecks.dl1_checker import check_dl1
 from ..image.muon import analyze_muon_event, tag_pix_thr
 from ..image.muon import create_muon_table, fill_muon_event
-from ..paths import parse_r0_filename, run_to_dl1_filename, r0_to_dl1_filename
-from ..visualization.camera import display_dl1_event, display_array_camera
 from .reconstructor import TimeWaveformFitter, NormalizedPulseTemplate
 
 
@@ -585,21 +578,8 @@ def r0_to_dl1(
                     dl1_container.fill_mc(event, subarray.positions[telescope_id])
 
                 try:
-<<<<<<< HEAD
-                    get_dl1(event,
-                            subarray,
-                            telescope_id,
-                            dl1_container=dl1_container,
-                            custom_config=config,
-                            use_main_island=True)
-
-                    dl1_filled = get_dl1_lh_fit(event, telescope_id,
-                                                normalized_pulse_template=None,
-                                                dl1_container=dl1_container,
-                                                custom_config=config,
-                                                use_main_island=True)
-=======
-                    dl1_filled = get_dl1(event, telescope_id,
+                    dl1_filled = get_dl1(event,
+                                          subarray, telescope_id,
                                           dl1_container=dl1_container,
                                           custom_config=config,
                                           use_main_island=True)
@@ -610,20 +590,6 @@ def r0_to_dl1(
 
                         if not is_saturated: #reject computationnally expensive events which would be poorly estimate with the selected value of n_peak TODO : improve to not reject events
 
-
-<<<<<<< HEAD
-                            dl1_filled = get_dl1_lh_fit(event, telescope_id,
-                                                    image=image,
-                                                    normalized_pulse_template=pulse_template,
-                                                    dl1_container=dl1_filled,
-                                                    custom_config=config,
-                                                    use_main_island=True)
-
-                    # print(dl1_container)
-                    # plt.show()
->>>>>>> import log-gaussian
-
-=======
                             dl1_filled = get_dl1_lh_fit(event,
                                                         subarray,
                                                         telescope_id,
@@ -632,7 +598,6 @@ def r0_to_dl1(
                                                         dl1_container=dl1_filled,
                                                         custom_config=config,
                                                         use_main_island=True)
->>>>>>> modifying the lhfit to be compatible with 0.6.3 and adding TODOs
                 except HillasParameterizationError:
                     logging.exception(
                         'HillasParameterizationError in get_dl1()'
