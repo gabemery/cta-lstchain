@@ -85,7 +85,7 @@ filters = tables.Filters(
     bitshuffle=False,       # for BLOSC, shuffle bits for better compression
 )
 
-geom = CameraGeometry.from_name('LSTCam') #TODO check if global variable needed and camera type hard coded
+geom = CameraGeometry.from_name('LSTCam-003') #TODO check if global variable needed and camera type hard coded
 
 
 def get_dl1(
@@ -577,6 +577,7 @@ def r0_to_dl1(
                                          custom_config=config,
                                          use_main_island=True)
                     image = event.dl1.tel[telescope_id].image
+                    print(telescope_id)
 
                     if ('lh_fit_config' in config.keys()) and (dl1_filled is not None):
                         is_saturated = np.any(image > config['lh_fit_config']['n_peaks'])
