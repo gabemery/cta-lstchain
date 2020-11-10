@@ -577,7 +577,6 @@ def r0_to_dl1(
                                          custom_config=config,
                                          use_main_island=True)
                     image = event.dl1.tel[telescope_id].image
-                    print(telescope_id)
 
                     if ('lh_fit_config' in config.keys()) and (dl1_filled is not None):
                         is_saturated = np.any(image > config['lh_fit_config']['n_peaks'])
