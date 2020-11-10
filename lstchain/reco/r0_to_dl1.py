@@ -20,8 +20,8 @@ from ctapipe.image import (
     tailcuts_clean,
 )
 from ctapipe.image.morphology import number_of_islands
-from ctapipe.io import EventSource, HDF5TableWriter
 from ctapipe.instrument import CameraGeometry
+from ctapipe.io import EventSource, HDF5TableWriter
 from ctapipe.utils import get_dataset_path
 from traitlets.config import Config
 from ctapipe.calib.camera import CameraCalibrator
@@ -116,7 +116,7 @@ def setup_writer(writer, subarray, is_simulation):
             writer.exclude(f'telescope/parameters/{tel_name}', 'mc_x_max')
             writer.exclude(f'telescope/parameters/{tel_name}', 'mc_core_distance')
 
-geom = CameraGeometry.from_name('LSTCam') #TODO check if global variable needed and camera type hard coded
+geom = CameraGeometry.from_name('LSTCam-003') #TODO check if global variable needed and camera type hard coded
 
 
 def get_dl1(
