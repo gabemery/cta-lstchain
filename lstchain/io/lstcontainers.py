@@ -116,7 +116,8 @@ class DL1ParametersContainer(Container):
     ucts_trigger_type = Field(None, "UCTS trigger type")
     trigger_time = Field(None, "trigger time")
 
-    lhfit_call_status(None, "Status of the processing of the event by the LH fit method")
+    lhfit_call_status = Field(None, "Status of the processing of the event "
+                            "by the LH fit method")
 
     # info not available in data
     #num_trig_pix = Field(None, "Number of trigger groups (sectors) listed")
