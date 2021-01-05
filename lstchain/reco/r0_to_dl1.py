@@ -636,7 +636,7 @@ def r0_to_dl1(
 
                             is_saturated = np.any(image > config['lh_fit_config']['n_peaks'])
 
-                            if not is_saturated:
+                            if True: #not is_saturated: # temporary for testing only
                                 # rejects computationnally expensive events which would
                                 # be poorly estimated with the selected value of n_peak
                                 # TODO : improve to not reject events
