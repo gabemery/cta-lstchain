@@ -65,7 +65,6 @@ from ..pointing import PointingPosition
 from ..io.io import dl1_params_lstcam_key
 
 logger = logging.getLogger(__name__)
-logger.setLevel(DEBUG)
 
 
 __all__ = [
