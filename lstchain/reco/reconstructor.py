@@ -27,7 +27,7 @@ class DL0Fitter(ABC):
 
     """
 
-    def __init__(self, waveform, error, sigma_s, geometry, dt, n_samples,
+    def __init__(self, waveform, error, sigma_s, dt, n_samples,
                  start_parameters, template, gain=1, is_high_gain=0,
                  baseline=0, crosstalk=0, sigma_space=4, sigma_time=3,
                  time_before_shower=10, time_after_shower=50,
@@ -44,8 +44,6 @@ class DL0Fitter(ABC):
             sigma_s: float array
                 Standard deviation of the amplitude of
                 the single photo-electron pulse
-            geometry: ctapipe.instrument.camera.CameraGeometry
-                Camera geometry
             dt: float
                 Duration of time samples
             n_samples: int
@@ -81,7 +79,6 @@ class DL0Fitter(ABC):
                 Parameters are :
                     x_cm, y_cm, charge, t_cm, v, psi, width, length
         """
-        self.geometry = geometry
         self.dt = dt
         self.template = template
 
@@ -502,7 +499,7 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
         calibrated response of the pixels.
     """
 
-    def __init__(self, *args, image, n_peaks=100, **kwargs):
+    def __init__(self, *args, n_peaks=100, **kwargs):
         """
             Initialise the data and parameters used for the fitting, including
             method specific objects.
@@ -516,7 +513,6 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
                 photo-electron value in the likelihood computation.
             -----------
         """
-        self.image = image
         super().__init__(*args, **kwargs)
         self._initialize_pdf(n_peaks=n_peaks)
 
@@ -806,7 +802,7 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
     def compute_bounds(self):
         """Method for the computation of the bounds for the fit."""
 
-    def plot_event(self, n_sigma=3, init=False):
+    def plot_event(self, image, geometry, n_sigma=3, init=False):
         """
             Plot the image of the event in the camera along with the extracted
             ellipsis before or after the fitting procedure.
@@ -825,9 +821,8 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
             Camera image using matplotlib
 
         """
-        charge = self.image
-        cam_display = display_array_camera(charge,
-                                           camera_geometry=self.geometry)
+        cam_display = display_array_camera(image,
+                                           camera_geometry=geometry)
 
         if init:
             params = self.start_parameters
@@ -848,7 +843,7 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
         """
 
         cam_display.add_ellipse(centroid=(params['x_cm'],
-                                        params['y_cm']),
+                                          params['y_cm']),
                                 width=n_sigma * params['width'],
                                 length=length,
                                 angle=psi,
@@ -858,7 +853,7 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
 
         return cam_display
 
-    def plot_waveforms(self, axes=None):
+    def plot_waveforms(self, image, axes=None):
         """
             Plot the intensity of the signal in the camera as a function of
             time and of the position projected on the main axis of the fitted
@@ -875,7 +870,7 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
             axes: matplotlib.pyplot.axis
                 Object filled with the figure
         """
-        image = self.image[self.mask_pixel]
+        image = image[self.mask_pixel]
         n_pixels = min(15, len(image))
         pixels = np.argsort(image)[-n_pixels:]
         dx = (self.pix_x[pixels] - self.end_parameters['x_cm'])

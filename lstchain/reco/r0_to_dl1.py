@@ -84,9 +84,6 @@ filters = tables.Filters(
     bitshuffle=False,       # for BLOSC, shuffle bits for better compression
 )
 
-geom = CameraGeometry.from_name('LSTCam-003')
-# TODO check if global variable needed and camera type hard coded
-
 
 def get_dl1(
         calibrated_event,
@@ -95,6 +92,7 @@ def get_dl1(
         dl1_container=None,
         custom_config={},
         use_main_island=True,
+        **kwargs
 ):
     """
     Return a DL1ParametersContainer of extracted features from a calibrated event.
@@ -148,7 +146,25 @@ def get_dl1(
         # Fill container
         dl1_container.fill_hillas(hillas)
 
-        # TODO Move lhfit here?
+        if 'lh_fit_config' in config.keys():
+            # Re-evaluate the DL1 parameters using a likelihood
+            # minimization method
+            try:
+                get_dl1_lh_fit(calibrated_event,
+                               camera_geometry,
+                               telescope_id,
+                               normalized_pulse_template=kwargs["pulse_template"],
+                               dl1_container=dl1_container,
+                               custom_config=config)
+                dl1_container.lhfit_call_status = "Processed"
+            except Exception as err:
+                dl1_container.lhfit_call_status = "Not processed : Error in function"
+                logger.exception("Unexpected error encountered in : get_dl1_lh_fit()")
+                logger.exception(err.__class__)
+                logger.exception(err)
+                raise
+        else:
+            dl1_container.lhfit_call_status = "Not active"
 
         # convert ctapipe's width and length (in m) to deg:
         foclen = subarray.tel[telescope_id].optics.equivalent_focal_length
@@ -179,20 +195,17 @@ def get_dl1(
 
 
 def get_dl1_lh_fit(
-    calibrated_event,
-    subarray,
-    telescope_id,
-    dl1_container,
-    normalized_pulse_template,
-    image,
-    is_simu,
-    custom_config={},
-    geometry=geom,  # TODO check why default value, check why the global variable is still used in the function
-    use_main_island=True):
+        calibrated_event,
+        geometry,
+        telescope_id,
+        dl1_container,
+        normalized_pulse_template,
+        custom_config={}
+):
     """
     Return a DL1ParametersContainer of extracted features from a calibrated
     event. The features are extracted by maximizing an image likelihood
-    function over pixels ands time samples. The model consider a 2D Gaussian
+    function over pixels ands time samples. The model considers a 2D Gaussian
     distribution of the charge and a linear temporal model. The spatio-temporal
     image model is then compared to the signal vs time in each pixel while
     taking into account the response of the instrument from calibration.
@@ -202,26 +215,21 @@ def get_dl1_lh_fit(
     Parameters
     ----------
     calibrated_event: ctapipe event container
-    subarray: `ctapipe.instrument.subarray.SubarrayDescription`
     telescope_id: `int`
     dl1_container: DL1ParametersContainer
     normalized_pulse_template: NormalizedPulseTemplate
-    image: array_like
-        Charge in each pixel
-    is_simu: `bool`
     custom_config: path to a configuration file
         contains the camera calibration parameters
         configuration used for tailcut cleaning
         superseeds the standard configuration
-    use_main_island: `bool` Use only the main island
-        to calculate DL1 parameters
 
     Returns
     -------
     DL1ParametersContainer
     """
     lh_fit_config = custom_config['lh_fit_config']
-    telescope = subarray.tel[telescope_id] #useless? used for geometry in get dl1 function
+    is_simu = False if dl1_container["mc_energy"] is None else True
+
     if is_simu:
         waveform = calibrated_event.r0.tel[telescope_id].waveform
         n_channels, n_pixels, n_samples = waveform.shape
@@ -235,13 +243,6 @@ def get_dl1_lh_fit(
     waveform = (waveform - baseline)
     selected_gains = calibrated_event.r1.tel[telescope_id].selected_gain_channel
     flat_field = flat_field / np.mean(flat_field, axis=-1)[:, None]
-
-    # convert back to ctapipe's width and length (in m) from deg TODO inefficient, may need to move the original conversion
-    foclen = subarray.tel[telescope_id].optics.equivalent_focal_length
-    width = foclen*np.tan(np.deg2rad(dl1_container.width))
-    length = foclen*np.tan(np.deg2rad(dl1_container.length))
-    dl1_container.width = width
-    dl1_container.length = length
 
     mask_high = (selected_gains == 0)
 
@@ -285,14 +286,14 @@ def get_dl1_lh_fit(
         start_parameters['v'] = 40
 
     t_max = n_samples * 1
-    d_min = (np.sqrt(geom.pix_area.to(u.m**2).value) / 2).min()
+    d_min = (np.sqrt(geometry.pix_area.to(u.m**2).value) / 2).min()
     v_min, v_max = 0,  t_max / d_min
-    r_max = np.sqrt(geom.pix_x**2 + geom.pix_y**2).to(u.m).value.max()
+    r_max = np.sqrt(geometry.pix_x**2 + geometry.pix_y**2).to(u.m).value.max()
 
-    bound_parameters = {'x_cm': (geom.pix_x.to(u.m).value.min(),
-                                 geom.pix_x.to(u.m).value.max()),
-                        'y_cm': (geom.pix_y.to(u.m).value.min(),
-                                 geom.pix_y.to(u.m).value.max()),
+    bound_parameters = {'x_cm': (geometry.pix_x.to(u.m).value.min(),
+                                 geometry.pix_x.to(u.m).value.max()),
+                        'y_cm': (geometry.pix_y.to(u.m).value.min(),
+                                 geometry.pix_y.to(u.m).value.max()),
                         'charge': (dl1_container.intensity * 0.01,
                                    dl1_container.intensity * 10),
                         't_cm': (-10, t_max + 10),
@@ -303,11 +304,9 @@ def get_dl1_lh_fit(
 
     try:
         fitter = TimeWaveformFitter(waveform=waveform,
-                                    image=image,
                                     error=error,
                                     n_peaks=lh_fit_config['n_peaks'],
-                                    sigma_s=sigma_s,
-                                    geometry=geometry, dt=1,
+                                    sigma_s=sigma_s, dt=1,
                                     n_samples=n_samples,
                                     template=normalized_pulse_template,
                                     gain=gain, is_high_gain=mask_high,
@@ -317,27 +316,21 @@ def get_dl1_lh_fit(
                                     time_before_shower=lh_fit_config['time_before_shower'],
                                     time_after_shower=lh_fit_config['time_after_shower'],
                                     start_parameters=start_parameters,
-                                    bound_parameters=bound_parameters,
+                                    bound_parameters=bound_parameters
                                     )
 
         fitter.predict(dl1_container, verbose=lh_fit_config['verbose'],
                        ncall=lh_fit_config['ncall'])
 
-        # convert ctapipe's width and length (in m) to deg: #TODO see previous
-        foclen = subarray.tel[telescope_id].optics.equivalent_focal_length
-        width = np.rad2deg(np.arctan2(dl1_container.width, foclen))
-        length = np.rad2deg(np.arctan2(dl1_container.length, foclen))
-        dl1_container.width = width
-        dl1_container.length = length
-
         if lh_fit_config['verbose']:
-            axes = fitter.plot_event(init=True)
+            image = calibrated_event.dl1.tel[telescope_id].image
+            axes = fitter.plot_event(image, geometry, init=True)
             axes.axes.get_figure().savefig('event/start.png')
 
-            axes = fitter.plot_waveforms()
+            axes = fitter.plot_waveforms(image)
             axes.get_figure().savefig('event/waveforms.png')
 
-            axes = fitter.plot_event()
+            axes = fitter.plot_event(image, geometry)
             axes.axes.get_figure().savefig('event/end.png')
 
             for params in fitter.start_parameters.keys():
@@ -626,52 +619,15 @@ def r0_to_dl1(
                     dl1_container.fill_mc(event, subarray.positions[telescope_id])
 
                 try:
-                    dl1_filled = get_dl1(event,
-                                         subarray, telescope_id,
-                                         dl1_container=dl1_container,
-                                         custom_config=config,
-                                         use_main_island=True)
+                    get_dl1(event,
+                            subarray, telescope_id,
+                            dl1_container=dl1_container,
+                            custom_config=config,
+                            use_main_island=True)
                 except HillasParameterizationError:
                     logger.exception(
                         'HillasParameterizationError in get_dl1()'
                     )
-
-                    image = event.dl1.tel[telescope_id].image
-
-                    if 'lh_fit_config' in config.keys():
-                        if (dl1_filled['n_pixels'] is not 0
-                           and dl1_filled['n_pixels'] < 1000):
-
-                            is_saturated = np.any(image > config['lh_fit_config']['n_peaks'])
-
-                            if True: #not is_saturated: # temporary for testing only
-                                # rejects computationally expensive events which would
-                                # be poorly estimated with the selected value of n_peak
-                                # TODO : improve to not reject events
-                                try:
-                                    dl1_filled = get_dl1_lh_fit(event,
-                                                                subarray,
-                                                                telescope_id,
-                                                                image=image,
-                                                                is_simu=is_simu,
-                                                                normalized_pulse_template=pulse_template,
-                                                                dl1_container=dl1_filled,
-                                                                custom_config=config,
-                                                                use_main_island=True)
-                                    dl1_filled.lhfit_call_status = "Processed"
-                                except Exception as err:
-                                    dl1_filled.lhfit_call_status = "Not processed : Error in function"
-                                    logger.exception("Unexpected error encountered in : get_dl1_lh_fit()")
-                                    logger.exception(err.__class__)
-                                    logger.exception(err)
-                                    raise
-                            else:
-                                dl1_filled.lhfit_call_status = "Not processed : Saturated"
-                        else:
-                            dl1_filled.lhfit_call_status = ("Not processed : n_pixel = "
-                                                            + str(dl1_filled['n_pixels']))
-                    else:
-                        dl1_filled.lhfit_call_status = "Not active"
 
                 if not is_simu:
                     # GPS + WRS + UCTS is now working in its nominal configuration.
