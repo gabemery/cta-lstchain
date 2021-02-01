@@ -328,6 +328,8 @@ def get_dl1_lh_fit(
         dl1_container.width = width
         dl1_container.length = length
 
+        dl1_container.area = width * length * np.pi
+
         if lh_fit_config['verbose']:
             axes = fitter.plot_event(init=True)
             axes.axes.get_figure().savefig('event/start.png')

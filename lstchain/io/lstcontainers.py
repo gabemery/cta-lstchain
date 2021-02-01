@@ -35,6 +35,11 @@ class DL1ParametersContainer(Container):
     intensity = Field(np.float64(np.nan), 'total intensity (size)')
     log_intensity = Field(np.float64(np.nan), 'log of total intensity (size)')
 
+    intensity_lhfit = Field(np.float64(np.nan), 'fitted intensity')
+    log_intensity_lhfit = Field(np.float64(np.nan), 'log of total fitted intensity')
+    t_68 = Field(np.nan, 'Time gradient times length')
+    area = Field(u.Quantity(np.nan, u.deg**2), '', unit=u.deg**2)
+
     x = Field(u.Quantity(np.nan, u.m), 'centroid x coordinate', unit=u.m)
     y = Field(u.Quantity(np.nan, u.m), 'centroid x coordinate', unit=u.m)
     r = Field(u.Quantity(np.nan, u.m), 'radial coordinate of centroid', unit=u.m)
