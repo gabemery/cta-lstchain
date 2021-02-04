@@ -1,5 +1,6 @@
 import numpy as np
-
+from ctapipe.image.toymodel import Gaussian, SkewedGaussian
+import timeit
 
 def log_gaussian(x, mean, sigma):
     """
@@ -64,3 +65,29 @@ def log_gaussian2d(size, x, y, x_cm, y_cm, width, length, psi):
 
     return log_pdf
 
+
+def log_gaussian2d_ctapipe(size, x, y, x_cm, y_cm, width, length, psi):
+    gaussian = Gaussian(x_cm, y_cm, length, width, psi)
+    log_pdf = np.log(gaussian.pdf(x, y)) + np.log(size)
+    return log_pdf
+
+
+def log_gaussian2d_skewed(size, x, y, x_cm, y_cm, width, length, psi, skewness):
+    skewed_gaussian = SkewedGaussian(x_cm, y_cm, length, width, psi, skewness)
+    log_pdf = np.log(skewed_gaussian.pdf(x, y)) + np.log(size)
+    return log_pdf
+
+if __name__ == '__main__':
+    print(timeit.timeit("log_gaussian2d(10,"
+                        " np.asarray([0,0.1,0.2]),"
+                        " np.asarray([0,0.1,0.2]),"
+                        "0.1,0.1,0.1,0.3,1)", setup="from __main__ import log_gaussian2d\nimport numpy as np",
+                        number=1000000
+                        ))
+
+    print(timeit.timeit("log_gaussian2d_ctapipe(10,"
+                        " np.asarray([0,0.1,0.2])*u.m,"
+                        " np.asarray([0,0.1,0.2])*u.m,"
+                        "0.1*u.m,0.1*u.m,0.1*u.m,0.3*u.m,1*u.rad)", setup="from __main__ import log_gaussian2d_ctapipe\nimport numpy as np\nimport astropy.units as u",
+                        number=1000000
+                        ))

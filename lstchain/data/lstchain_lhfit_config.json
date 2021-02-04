@@ -91,7 +91,7 @@
     "reco_disp_dy"
   ],
 
-  "allowed_tels": [1, 2, 3, 4],
+  "allowed_tels": [1],
   "max_events": null,
   "custom_calibration": false,
   "write_pe_image": false,
@@ -170,9 +170,9 @@
     "ncall": 300,
     "sigma_space": 3,     
     "sigma_time": 4,
-    "time_before_shower": 5,
+    "time_before_shower": 0,
     "time_after_shower": 20,
-    "n_peaks": 300,
+    "n_peaks": 200,
     "verbose": false
   }
 }

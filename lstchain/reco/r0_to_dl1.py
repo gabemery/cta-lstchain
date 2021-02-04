@@ -258,6 +258,8 @@ def get_dl1_lh_fit(
     v = dl1_container.time_gradient
     psi = dl1_container.psi.to(u.rad).value
     if v < 0:
+        # TODO test skewed gaussian model (uncomment next line)
+        # dl1_container.skewness = -dl1_container.skewness
         if psi >= 0:
             psi = psi - np.pi
         else:
@@ -271,7 +273,10 @@ def get_dl1_lh_fit(
                         'v': np.abs(v),
                         'psi': psi,
                         'width': dl1_container.width.to(u.m).value,
-                        'length': dl1_container.length.to(u.m).value}
+                        'length': dl1_container.length.to(u.m).value,
+                        # TODO test skewed gaussian model (uncomment next line)
+                        # 'skewness': dl1_container.skewness
+                        }
 
     if start_parameters['width'] <= 0.0:
         start_parameters['width'] = 0.00001
@@ -281,11 +286,15 @@ def get_dl1_lh_fit(
         start_parameters['t_cm'] = 0.
     if start_parameters['v'] == np.nan:
         start_parameters['v'] = 40
-
+    # TODO test skewed gaussian model (uncomment next lines)
+    # if np.abs(start_parameters['skewness']) > 1:
+    #     start_parameters['skewness'] = 0
     t_max = n_samples * 1
     d_min = (np.sqrt(geom.pix_area.to(u.m**2).value) / 2).min()
     v_min, v_max = 0,  t_max / d_min
     r_max = np.sqrt(geom.pix_x**2 + geom.pix_y**2).to(u.m).value.max()
+    # TODO test skewed gaussian model (uncomment next line)
+    # skew_lim = 1#np.abs(dl1_container.skewness*2)
 
     bound_parameters = {'x_cm': (geom.pix_x.to(u.m).value.min(),
                                  geom.pix_x.to(u.m).value.max()),
@@ -297,7 +306,10 @@ def get_dl1_lh_fit(
                         'v': (v_min, v_max),
                         'psi': (-np.pi, np.pi),
                         'width': (0.00001, r_max),
-                        'length': (0.00001, r_max), }
+                        'length': (0.00001, r_max),
+                        # TODO test skewed gaussian model (uncomment next line)
+                        # 'skewness': (-skew_lim, skew_lim)
+                        }
 
     try:
         fitter = TimeWaveformFitter(waveform=waveform,

@@ -13,6 +13,8 @@ import astropy.units as u
 from ctapipe.reco.reco_algorithms import Reconstructor
 from lstchain.io.lstcontainers import DL1ParametersContainer
 from lstchain.image.pdf import log_gaussian, log_gaussian2d
+# TODO test skewed gaussian model (uncomment next line)
+# from lstchain.image.pdf import log_gaussian2d_ctapipe, log_gaussian2d_skewed
 from lstchain.visualization.camera import display_array_camera
 
 logger = logging.getLogger(__name__)
@@ -96,7 +98,9 @@ class DL0Fitter(ABC):
                        'width': '$\sigma_w$ [m]',
                        'length': '$\sigma_l$ [m]',
                        'psi': '$\psi$ [rad]',
-                       'v': '$v$ [m/ns]'
+                       'v': '$v$ [m/ns]',
+                       # TODO test skewed gaussian model (uncomment next line)
+                       #'skewness': 'Skewness'
                        }
 
         self.sigma_space = sigma_space
@@ -563,6 +567,8 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
 
     def log_pdf(self, charge, t_cm, x_cm, y_cm, width,
                 length, psi, v):
+        # TODO test skewed gaussian model (uncomment next line)
+        # , skewness):
         """
             Compute the log likelihood of the model used for a set of input
             parameters.
@@ -601,7 +607,6 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
         t = np.polyval(p, long)
         t = self.times[..., None] - t
         t = t.T
-
         log_mu = log_gaussian2d(size=charge * self.pix_area,
                                 x=self.pix_x,
                                 y=self.pix_y,
@@ -610,7 +615,32 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
                                 width=width,
                                 length=length,
                                 psi=psi)
+        """
+        log_mu_ctapipe = log_gaussian2d_ctapipe(size=charge * self.pix_area,
+                                x=self.pix_x*u.m,
+                                y=self.pix_y*u.m,
+                                x_cm=x_cm*u.m,
+                                y_cm=y_cm*u.m,
+                                width=width*u.m,
+                                length=length*u.m,
+                                psi=psi*u.rad)
+        print(log_mu,log_mu_ctapipe)
+        print(np.sum(log_mu-log_mu_ctapipe))
+        """
+        # TODO test skewed gaussian model (uncomment next block)
+        """
+        log_mu = log_gaussian2d_skewed(size=charge * self.pix_area,
+                                       x=self.pix_x*u.m,
+                                       y=self.pix_y*u.m,
+                                       x_cm=x_cm*u.m,
+                                       y_cm=y_cm*u.m,
+                                       width=width*u.m,
+                                       length=length*u.m,
+                                       psi=psi*u.rad,
+                                       skewness=skewness)
+        """
         mu = np.exp(log_mu)
+
 
         # We reduce the sum by limiting to the poisson term contributing for
         # more than 10^-6. The limits are approximated by 2 broken linear
@@ -720,7 +750,8 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
                                self.end_parameters['width']) * u.m
         container.width = min(self.end_parameters['length'],
                               self.end_parameters['width']) * u.m
-
+        # TODO test skewed gaussian model (uncomment next line)
+        # container.skewness = self.end_parameters['skewness']
         container.time_gradient = self.end_parameters['v']
         container.intercept = self.end_parameters['t_cm']
 
