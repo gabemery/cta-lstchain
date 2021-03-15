@@ -20,7 +20,6 @@ from ctapipe.image import (
     tailcuts_clean,
 )
 from ctapipe.image.morphology import number_of_islands
-from ctapipe.instrument import CameraGeometry
 from ctapipe.io import EventSource, HDF5TableWriter
 from ctapipe.utils import get_dataset_path
 from traitlets.config import Config
@@ -623,7 +622,6 @@ def r0_to_dl1(
                             subarray, telescope_id,
                             dl1_container=dl1_container,
                             custom_config=config,
-                            use_main_island=True,
                             lhfit_args=lhfit_args)
                 except HillasParameterizationError:
                     logger.exception(
