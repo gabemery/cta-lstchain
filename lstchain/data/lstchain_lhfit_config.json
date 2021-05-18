@@ -7,6 +7,8 @@
     "LSTEventSource": {
       "default_trigger_type": "ucts",
       "allowed_tels": [1],
+      "min_flatfield_adc": 3000,
+      "min_flatfield_pixel_fraction": 0.8,
       "calibrate_flatfields_and_pedestals": false,
       "EventTimeCalculator": {
         "dragon_reference_counter": null,
@@ -196,7 +198,7 @@
     "sigma_s": 0.3282,
     "crosstalk": 0.0,
     "pulse_template_location": "/fefs/aswg/workspace/gabriel.emery/config/prod5/pulse_LST_8dynode_pix6_20200204.dat",
-    "ncall": 300,
+    "ncall": 500,
     "sigma_space": 3,
     "sigma_time": 4,
     "time_before_shower": 0,
