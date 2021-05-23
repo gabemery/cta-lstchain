@@ -30,6 +30,7 @@ from .utils import sky_to_camera
 from .volume_reducer import apply_volume_reduction
 from ..calib.camera import lst_calibration, load_calibrator_from_config
 from ..calib.camera.calibration_calculator import CalibrationCalculator
+from ..calib.camera.pixel_threshold_estimation import get_bias_and_std
 from ..image.muon import analyze_muon_event, tag_pix_thr
 from ..image.muon import create_muon_table, fill_muon_event
 from ..image.cleaning import apply_time_delta_cleaning
@@ -212,9 +213,11 @@ def get_dl1(
                     if dl1_container['n_pixels'] > 0:
                         try:
                             get_dl1_lh_fit(calibrated_event,
+                                           subarray,
                                            camera_geometry,
                                            telescope_id,
                                            normalized_pulse_template=lhfit_args["pulse_template"],
+                                           pedestal_std=lhfit_args["pedestal_std"],
                                            dl1_container=dl1_container,
                                            custom_config=config)
                             dl1_container.lhfit_call_status = 1
@@ -247,10 +250,12 @@ def get_dl1(
 
 def get_dl1_lh_fit(
     calibrated_event,
+    subarray,
     geometry,
     telescope_id,
     dl1_container,
     normalized_pulse_template,
+    pedestal_std,
     custom_config={}):
     """
     Return a DL1ParametersContainer of extracted features from a calibrated
@@ -277,10 +282,26 @@ def get_dl1_lh_fit(
     lh_fit_config = custom_config['lh_fit_config']
 
     waveform = calibrated_event.r1.tel[telescope_id].waveform
+
+    time_shift = 0
+    if dl1_container.mc_type == -9999:
+        dl1_calib = calibrated_event.calibration.tel[telescope_id].dl1
+        time_shift = dl1_calib.time_shift
+        if dl1_calib.pedestal_offset is not None:
+            # this copies intentionally, we don't want to modify the dl0 data
+            # waveforms have shape (n_pixel, n_samples), pedestals (n_pixels, )
+            waveform = waveform - dl1_calib.pedestal_offset[:, np.newaxis]
+    readout = subarray.tel[telescope_id].camera.readout
+    sampling_rate = readout.sampling_rate.to_value(u.GHz)
+    dt = (1.0/sampling_rate)
+
     n_pixels, n_samples = waveform.shape
     selected_gains = calibrated_event.r1.tel[telescope_id].selected_gain_channel
     mask_high = (selected_gains == 0)
-    error = None
+    if pedestal_std is not None:
+        error = pedestal_std[1][0] * mask_high + pedestal_std[1][1] * ~mask_high
+    else:
+        error = None
     sigma_s = np.ones(n_pixels) * lh_fit_config['sigma_s']
     crosstalk = np.ones(n_pixels) * lh_fit_config['crosstalk']
 
@@ -345,7 +366,7 @@ def get_dl1_lh_fit(
                                     n_peaks=lh_fit_config['n_peaks'],
                                     sigma_s=sigma_s,
                                     geometry=geometry,
-                                    dt=1, n_samples=n_samples,
+                                    dt=dt, time_shift=time_shift, n_samples=n_samples,
                                     template=normalized_pulse_template,
                                     is_high_gain=mask_high,
                                     crosstalk=crosstalk,
@@ -484,10 +505,17 @@ def r0_to_dl1(
         )
     lhfit_args = {}
     if 'lh_fit_config' in config.keys():
+        if is_simu or config['lh_fit_config']['use_interleaved'] is None:
+            ped_charge_std_pe = None
+        else:
+            run = parse_r0_filename(input_filename)
+            dl1_file = config['lh_fit_config']['use_interleaved'] + run_to_dl1_filename(run.tel_id, run.run, run.subrun)
+            _, ped_charge_std_pe = get_bias_and_std(dl1_file)
         lhfit_args = {
             "pulse_template": NormalizedPulseTemplate.load(
                 config['lh_fit_config']['pulse_template_location']),
-            "is_simu": is_simu
+            "is_simu": is_simu,
+            "pedestal_std": ped_charge_std_pe
         }
 
     with HDF5TableWriter(

@@ -25,7 +25,7 @@ class DL0Fitter(ABC):
 
     """
 
-    def __init__(self, waveform, error, sigma_s, geometry, dt, n_samples,
+    def __init__(self, waveform, error, sigma_s, geometry, dt, time_shift, n_samples,
                  start_parameters, template, is_high_gain=0,
                  crosstalk=0, sigma_space=4, sigma_time=3,
                  time_before_shower=10, time_after_shower=50,
@@ -115,6 +115,7 @@ class DL0Fitter(ABC):
         self.crosstalk = crosstalk[self.mask_pixel]
 
         self.times = (np.arange(0, self.n_samples) * self.dt)[self.mask_time]
+        self.time_shift = time_shift[self.mask_pixel]
 
         self.pix_x = geometry.pix_x.value[self.mask_pixel]
         self.pix_y = geometry.pix_y.value[self.mask_pixel]
@@ -129,6 +130,10 @@ class DL0Fitter(ABC):
         if error is None:
             std = np.std(self.data[~self.mask_pixel])
             self.error = np.ones(self.data.shape) * std
+        else:
+            std = np.std(self.data[~self.mask_pixel])
+            self.error[self.error <= std/2] = std
+            self.error = self.error[..., None] * np.ones(self.data.shape)
 
         self.data = np.delete(self.data, filter_pixels, axis=0)
         self.data = np.delete(self.data, filter_times, axis=1)
@@ -588,7 +593,7 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
         p = [v, t_cm]
         t = np.polyval(p, long)
         t = self.times[..., None] - t
-        t = t.T
+        t = t.T - self.time_shift[..., None]
         templates = (self.template(t, 'HG').T * self.is_high_gain
                      + self.template(t, 'LG').T * (~self.is_high_gain)).T
 
