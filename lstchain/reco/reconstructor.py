@@ -89,8 +89,8 @@ class DL0Fitter(ABC):
                        't_cm': '$t_{CM}$ [ns]',
                        'x_cm': '$x_{CM}$ [m]',
                        'y_cm': '$y_{CM}$ [m]',
-                       'width': '$\sigma_w$ [m]',
                        'length': '$\sigma_l$ [m]',
+                       'wl': '$\sigma_w$ / $\sigma_l$',
                        'psi': '$\psi$ [rad]',
                        'v': '$v$ [m/ns]',
                        'rl': 'length asymmetry'
@@ -529,8 +529,8 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
         """
         x_cm = self.start_parameters['x_cm']
         y_cm = self.start_parameters['y_cm']
-        width = self.start_parameters['width']
         length = self.start_parameters['length']
+        width = self.start_parameters['wl'] * length
         psi = self.start_parameters['psi']
 
         dx = self.pix_x - x_cm
@@ -565,8 +565,8 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
         log_factorial = np.cumsum(log_factorial)
         self.log_factorial = log_factorial
 
-    def log_pdf(self, charge, t_cm, x_cm, y_cm, width,
-                length, psi, v, rl):
+    def log_pdf(self, charge, t_cm, x_cm, y_cm,
+                length, wl, psi, v, rl):
         """
             Compute the log likelihood of the model used for a set of input
             parameters.
@@ -604,7 +604,7 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
                                    y=self.pix_y,
                                    x_cm=x_cm,
                                    y_cm=y_cm,
-                                   width=width,
+                                   width=wl * length,
                                    length=length,
                                    psi=psi,
                                    rl=rl)
@@ -842,7 +842,8 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
                                            t_cm=self.end_parameters['t_cm'],
                                            x_cm=self.end_parameters['x_cm'],
                                            y_cm=self.end_parameters['y_cm'],
-                                           width=self.end_parameters['width'],
+                                           width=(self.end_parameters['wl'] *
+                                                  self.end_parameters['length']),
                                            length=self.end_parameters['length'],
                                            psi=self.end_parameters['psi'],
                                            v=self.end_parameters['v'],
@@ -862,12 +863,12 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
         container.psi = self.end_parameters['psi'] * u.rad
         container.length = ((1.0+self.end_parameters['rl'])
                             * self.end_parameters['length'] / 2.0) * u.m
-        container.width = self.end_parameters['width'] * u.m
+        container.width = self.end_parameters['wl'] * container.length
 
         container.time_gradient = self.end_parameters['v']
         container.intercept = self.end_parameters['t_cm']
 
-        container.wl = container.width / container.length
+        container.wl = self.end_parameters['wl']
         container.intensity_lhfit = self.end_parameters['charge']
         container.log_intensity_lhfit = np.log10(container.intensity_lhfit)
         container.t_68 = container.length.value * container.time_gradient
@@ -921,7 +922,7 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
         if ellipsis:
             cam_display.add_ellipse(centroid=(params['x_cm'],
                                               params['y_cm']),
-                                    width=n_sigma * params['width'],
+                                    width=n_sigma * params['wl']*params['length'],
                                     length=length,
                                     angle=psi,
                                     linewidth=6, color='r', linestyle='--',
@@ -954,7 +955,7 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
                                 y=self.geometry.pix_y.value,
                                 x_cm=params['x_cm'],
                                 y_cm=params['y_cm'],
-                                width=params['width'],
+                                width=params['wl']*params['length'],
                                 length=params['length'],
                                 psi=params['psi'],rl=params['rl'])
         mu = np.exp(log_mu)
@@ -987,7 +988,7 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
                                 y=self.geometry.pix_y.value,
                                 x_cm=params['x_cm'],
                                 y_cm=params['y_cm'],
-                                width=params['width'],
+                                width=params['wl']*params['length'],
                                 length=params['length'],
                                 psi=params['psi'],rl=params['rl'])
         mu = np.exp(log_mu)

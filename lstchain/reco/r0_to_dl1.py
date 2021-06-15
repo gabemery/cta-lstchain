@@ -320,15 +320,15 @@ def get_dl1_lh_fit(
                         - normalized_pulse_template.compute_time_of_max(),
                         'v': np.abs(v),
                         'psi': psi,
-                        'width': dl1_container.width.to(u.m).value,
                         'length': dl1_container.length.to(u.m).value,
+                        'wl': dl1_container.width.to(u.m).value/dl1_container.length.to(u.m).value,
                         'rl': 1.0
                         }
 
-    if start_parameters['width'] <= 0.02:
-        start_parameters['width'] = 0.02
     if start_parameters['length'] <= 0.02:
         start_parameters['length'] = 0.02
+    if dl1_container.width.to(u.m).value <= 0.02:
+        start_parameters['wl'] = 0.02/start_parameters['length']
     if np.isnan(start_parameters['t_cm']):
         start_parameters['t_cm'] = 0.
     if np.isnan(start_parameters['v']):
@@ -354,12 +354,10 @@ def get_dl1_lh_fit(
                         't_cm': (-10, t_max + 10),
                         'v': (v_min, v_max),
                         'psi': (-np.pi*2.0, np.pi*2.0),
-                        'width': (0.001,
-                                  min(2 * dl1_container.length.to(u.m).value
-                                      , r_max)),
                         'length': (0.001,
                                    min(2 * dl1_container.length.to(u.m).value
                                        , r_max)),
+                        'wl': (0.001,1.0),
                         'rl': (rl_min, rl_max)
                         }
 
