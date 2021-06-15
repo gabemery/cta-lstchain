@@ -16,6 +16,7 @@ dependencies:
   - joblib
   - toml
   - protozfits=2.0
+  - numexpr
   - pip:
       - pytest_runner
       - pytest-ordering

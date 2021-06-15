@@ -1,4 +1,5 @@
 import numpy as np
+import numexpr as ne
 
 
 def log_gaussian(x, mean, sigma):
@@ -19,11 +20,8 @@ def log_gaussian(x, mean, sigma):
     log_pdf: float or array-like
         Log of the evaluation of the normal law at x
     """
-
-    log_pdf = -(x - mean) ** 2 / (2 * sigma ** 2)
-    log_pdf = log_pdf - np.log((np.sqrt(2 * np.pi) * sigma))
-
-    return log_pdf
+    pi = np.pi
+    return ne.evaluate("-(x - mean) ** 2 / (2 * sigma ** 2) - log((sqrt(2 * pi) * sigma))")
 
 
 def log_gaussian2d(size, x, y, x_cm, y_cm, width, length, psi):
