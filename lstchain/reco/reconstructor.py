@@ -115,6 +115,8 @@ class DL0Fitter(ABC):
         self.crosstalk = crosstalk[self.mask_pixel]
 
         self.times = (np.arange(0, self.n_samples) * self.dt)[self.mask_time]
+        if time_shift is None:
+            time_shift = np.zeros(is_high_gain.shape)
         self.time_shift = time_shift[self.mask_pixel]
 
         self.pix_x = geometry.pix_x.value[self.mask_pixel]

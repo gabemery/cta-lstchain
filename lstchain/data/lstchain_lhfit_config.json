@@ -204,6 +204,7 @@
     "time_before_shower": 0,
     "time_after_shower": 20,
     "n_peaks": 200,
+    "no_asymmetry": true,
     "verbose": false
   }
 }

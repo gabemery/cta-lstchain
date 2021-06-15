@@ -283,7 +283,7 @@ def get_dl1_lh_fit(
 
     waveform = calibrated_event.r1.tel[telescope_id].waveform
 
-    time_shift = 0
+    time_shift = None
     if dl1_container.mc_type == -9999:
         dl1_calib = calibrated_event.calibration.tel[telescope_id].dl1
         time_shift = dl1_calib.time_shift
@@ -337,6 +337,9 @@ def get_dl1_lh_fit(
     t_max = n_samples * 1
     v_min, v_max = 0,  max(2*start_parameters['v'], 50)
     r_max = np.sqrt(geometry.pix_x**2 + geometry.pix_y**2).to(u.m).value.max()
+    rl_min, rl_max = 0.2, 5.0
+    if custom_config['lh_fit_config']['no_asymetry']:
+        rl_min, rl_max = 1.0, 1.0
 
     bound_parameters = {'x_cm': (dl1_container.x.to(u.m).value
                                  - 1.0 * dl1_container.length.to(u.m).value,
@@ -357,7 +360,7 @@ def get_dl1_lh_fit(
                         'length': (0.001,
                                    min(2 * dl1_container.length.to(u.m).value
                                        , r_max)),
-                        'rl': (0.2, 5.0)
+                        'rl': (rl_min, rl_max)
                         }
 
     try:
