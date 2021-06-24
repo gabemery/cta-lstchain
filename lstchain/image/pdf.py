@@ -63,7 +63,7 @@ def log_gaussian2d(size, x, y, x_cm, y_cm, width, length, psi):
     return log_pdf
 
 
-def logAsy_gaussian2d(size, x, y, x_cm, y_cm, width, length, psi ,rl):
+def logAsy_gaussian2d(size, x, y, x_cm, y_cm, width, length, psi, rl):
     """
     Evaluate the log of a bi-dimensional gaussian law with asymmetry along the
     length

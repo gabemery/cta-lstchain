@@ -600,6 +600,8 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
         templates = (self.template(t, 'HG').T * self.is_high_gain
                      + self.template(t, 'LG').T * (~self.is_high_gain)).T
 
+        rl = 1+rl if rl >= 0 else 1/(1-rl)
+
         log_mu = logAsy_gaussian2d(size=charge * self.pix_area,
                                    x=self.pix_x,
                                    y=self.pix_y,
@@ -692,142 +694,6 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
 
         return log_pdf
 
-    def compute_goodness_of_fit(self, charge, t_cm, x_cm, y_cm, width,
-                                length, psi, v, rl):
-
-        def array_times_template_part(ti, template, gain_type):
-            return template(ti, gain=gain_type)
-
-        def array_times_template(ti, template, is_high_gain):
-            return (array_times_template_part(ti, template, 'HG').T
-                    * is_high_gain
-                    + array_times_template_part(ti, template, 'LG').T
-                    * (~is_high_gain)).T
-
-        dx = (self.pix_x - x_cm)
-        dy = (self.pix_y - y_cm)
-        long = dx * np.cos(psi) + dy * np.sin(psi)
-        p = [v, t_cm]
-        t = np.polyval(p, long)
-        t = self.times[..., None] - t
-        t = t.T
-
-        log_mu = logAsy_gaussian2d(size=charge * self.pix_area,
-                                   x=self.pix_x,
-                                   y=self.pix_y,
-                                   x_cm=x_cm,
-                                   y_cm=y_cm,
-                                   width=width,
-                                   length=length,
-                                   psi=psi,
-                                   rl=rl)
-        mu = np.exp(log_mu)
-        mu[mu<=0] = 1e-320
-
-        # We reduce the sum by limiting to the poisson term contributing for
-        # more than 10^-6. The limits are approximated by 2 broken linear
-        # function obtained for 0 crosstalk.
-        # The choice of kmin and kmax is currently not done on a pixel basis
-        mask_LL = (mu <= self.n_peaks/1.096 - 47.8)
-        if len(mu[mask_LL]) == 0:
-            kmin, kmax = 0, self.n_peaks
-        else:
-            min_mu = min(mu[mask_LL])
-            max_mu = max(mu[mask_LL])
-            if min_mu < 120:
-                kmin = int(0.66 * (min_mu-20))
-            else:
-                kmin = int(0.904 * min_mu - 42.8)
-            if max_mu < 120:
-                kmax = int(np.ceil(1.34 * (max_mu-20) + 45))
-            else:
-                kmax = int(np.ceil(1.096 * max_mu + 47.8))
-        if kmin < 0:
-            kmin = 0
-        if kmax > self.n_peaks:
-            kmax = int(self.n_peaks)
-            logger.warning("kmax forced to %s", kmax)
-
-        photo_peaks = np.arange(kmin, kmax, dtype=np.int)
-        crosstalk_factor = photo_peaks[..., None]*self.crosstalk[mask_LL]
-
-        # Compute the Poisson term in the pixel likelihood for
-        # low luminosity pixels
-        mu_plus_crosstalk = mu[mask_LL] + crosstalk_factor
-        log_mu_plus_crosstalk = np.log(mu_plus_crosstalk)
-        log_mu_plus_crosstalk = ((photo_peaks - 1)
-                                 * log_mu_plus_crosstalk.T).T
-        log_poisson = (log_mu[mask_LL]
-                       - self.log_factorial[kmin:kmax][..., None]
-                       - mu_plus_crosstalk
-                       + log_mu_plus_crosstalk)
-
-        # Compute the Gaussian term in the pixel likelihood for
-        # low luminosity pixels
-        signal = self.data
-
-        mean = (photo_peaks
-                * array_times_template(t[mask_LL],
-                                       self.template,
-                                       self.is_high_gain[mask_LL])[..., None])
-        sigma_n = (photo_peaks
-                   * (self.sigma_s[mask_LL][..., None]*array_times_template(t[mask_LL],
-                                           self.template,
-                                           self.is_high_gain[mask_LL]
-                                           )**2)[..., None])
-        sigma_n = (self.error[mask_LL]**2)[..., None] + sigma_n
-        sigma_n = np.sqrt(sigma_n)
-        log_gauss = log_gaussian(signal[mask_LL][..., None], mean, sigma_n)
-
-        # Compute the pixel likelihood using a Gaussian approximation for
-        # high luminosity pixels
-        if np.any(~mask_LL):
-            mu_hat = ((mu[~mask_LL] / (1-self.crosstalk[~mask_LL]))[..., None]
-                      * array_times_template(t[~mask_LL],
-                                             self.template,
-                                             self.is_high_gain[~mask_LL]))
-            sigma_hat = (((mu[~mask_LL]
-                           / np.power(1-self.crosstalk[~mask_LL], 3))[..., None]
-                         * array_times_template(t[~mask_LL],
-                                                self.template,
-                                                self.is_high_gain[~mask_LL])**2))
-            sigma_hat = np.sqrt((self.error[~mask_LL]**2) + sigma_hat)
-
-            log_pixel_pdf_HL = log_gaussian(signal[~mask_LL], mu_hat, sigma_hat)
-            n_points_HL = log_pixel_pdf_HL.size
-        else:
-            log_pixel_pdf_HL, n_points_HL = np.asarray([0]), 0
-
-        log_poisson = np.expand_dims(log_poisson.T, axis=1)
-        log_pixel_pdf_LL = log_poisson + log_gauss
-        pixel_pdf_LL = np.sum(np.exp(log_pixel_pdf_LL), axis=-1)
-
-        mask = (pixel_pdf_LL <= 0)
-        pixel_pdf_LL[mask] = 1e-320
-        n_points_LL = pixel_pdf_LL.size
-
-        signal = mu[...,None] * array_times_template(t,
-                                       self.template,
-                                       self.is_high_gain)
-
-        log_gauss_expected = log_gaussian(signal[mask_LL][..., None], mean, sigma_n)
-
-        # Compute the pixel likelihood using a Gaussian approximation for
-        # high luminosity pixels
-        if np.any(~mask_LL):
-            log_pixel_pdf_HL_expected = log_gaussian(signal[~mask_LL], mu_hat, sigma_hat)
-        else:
-            log_pixel_pdf_HL_expected = np.asarray([0])
-
-        log_pixel_pdf_LL_expected = log_poisson + log_gauss_expected
-        pixel_pdf_LL_expected = np.sum(np.exp(log_pixel_pdf_LL_expected), axis=-1)
-        pixel_pdf_LL_expected[pixel_pdf_LL_expected<=0] = 1e-320
-
-        n_dof = (n_points_LL + n_points_HL) - 8
-        gof = (np.sum(np.log(pixel_pdf_LL) - np.log(pixel_pdf_LL_expected))+np.sum(log_pixel_pdf_HL - log_pixel_pdf_HL_expected))/np.sqrt(2*n_dof)
-
-        return gof
-
     def predict(self, container=DL1ParametersContainer(), **kwargs):
         """
             Call the fitting procedure and fill the results.
@@ -839,17 +705,7 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
         """
 
         self.fit(**kwargs)
-        GoF = self.compute_goodness_of_fit(charge=self.end_parameters['charge'],
-                                           t_cm=self.end_parameters['t_cm'],
-                                           x_cm=self.end_parameters['x_cm'],
-                                           y_cm=self.end_parameters['y_cm'],
-                                           width=(self.end_parameters['wl'] *
-                                                  self.end_parameters['length']),
-                                           length=self.end_parameters['length'],
-                                           psi=self.end_parameters['psi'],
-                                           v=self.end_parameters['v'],
-                                           rl=self.end_parameters['rl']
-                                           )
+        GoF = 0  # removing the goodness of fit as it is not accurate for now
         container.lhfit_goodness_of_fit = GoF
         container.lhfit_TS = self.fcn
 
@@ -950,6 +806,8 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
         """
 
         params = self.end_parameters
+
+        rl = 1+params['rl'] if params['rl'] >= 0 else 1/(1-params['rl'])
         log_mu = logAsy_gaussian2d(size=params['charge']
                                 * self.geometry.pix_area.to(u.m**2).value,
                                 x=self.geometry.pix_x.value,
@@ -958,7 +816,7 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
                                 y_cm=params['y_cm'],
                                 width=params['wl']*params['length'],
                                 length=params['length'],
-                                psi=params['psi'],rl=params['rl'])
+                                psi=params['psi'],rl=rl)
         mu = np.exp(log_mu)
         residual = image - mu
 
@@ -983,6 +841,7 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
         """
 
         params = self.end_parameters
+        rl = 1 + params['rl'] if params['rl'] >= 0 else 1 / (1 - params['rl'])
         log_mu = logAsy_gaussian2d(size=params['charge']
                                 * self.geometry.pix_area.to(u.m**2).value,
                                 x=self.geometry.pix_x.value,
@@ -991,7 +850,7 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
                                 y_cm=params['y_cm'],
                                 width=params['wl']*params['length'],
                                 length=params['length'],
-                                psi=params['psi'],rl=params['rl'])
+                                psi=params['psi'],rl=rl)
         mu = np.exp(log_mu)
 
         cam_display = display_array_camera(mu,
@@ -1258,3 +1117,29 @@ class NormalizedPulseTemplate:
         t_max = (self.time[np.argmax(self.amplitude_HG)] +
                  self.time[np.argmax(self.amplitude_LG)])/2
         return t_max
+
+
+def asy_centroid(geom, image):
+
+    """
+    Compute a centroid weighting as the signal squared for asymetric models
+
+    Parameters
+    ----------
+    geom: ctapipe.instrument.CameraGeometry
+        Camera geometry
+    image : array_like
+        Charge in each pixel
+
+    Returns
+    -------
+    (x_cm, y_cm): astropy.units.Quantity
+    """
+    unit = geom.pix_x.unit
+    pix_x = u.Quantity(np.asanyarray(geom.pix_x, dtype=np.float64)).value
+    pix_y = u.Quantity(np.asanyarray(geom.pix_y, dtype=np.float64)).value
+    image = np.asanyarray(image, dtype=np.float64)
+    image = np.ma.filled(image, 0)
+    cog_x = np.average(pix_x, weights=image**2)
+    cog_y = np.average(pix_y, weights=image**2)
+    return [u.Quantity(cog_x, unit), u.Quantity(cog_y, unit)]

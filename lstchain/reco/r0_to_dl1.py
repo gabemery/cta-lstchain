@@ -34,7 +34,11 @@ from ..calib.camera.pixel_threshold_estimation import get_bias_and_std
 from ..image.muon import analyze_muon_event, tag_pix_thr
 from ..image.muon import create_muon_table, fill_muon_event
 from ..image.cleaning import apply_time_delta_cleaning
-from .reconstructor import TimeWaveformFitter, NormalizedPulseTemplate
+from .reconstructor import (
+    TimeWaveformFitter,
+    NormalizedPulseTemplate,
+    asy_centroid
+)
 from ..io import (
     DL1ParametersContainer,
     replace_config,
@@ -212,6 +216,12 @@ def get_dl1(
                 # minimization method
                     if dl1_container['n_pixels'] > 0:
                         try:
+                            if not config['lh_fit_config']['no_asymmetry']:
+                                asy_center = asy_centroid(
+                                    camera_geometry[signal_pixels],
+                                    image[signal_pixels])
+                                dl1_container.x = asy_center[0]
+                                dl1_container.y = asy_center[1]
                             get_dl1_lh_fit(calibrated_event,
                                            subarray,
                                            camera_geometry,
@@ -288,8 +298,6 @@ def get_dl1_lh_fit(
         dl1_calib = calibrated_event.calibration.tel[telescope_id].dl1
         time_shift = dl1_calib.time_shift
         if dl1_calib.pedestal_offset is not None:
-            # this copies intentionally, we don't want to modify the dl0 data
-            # waveforms have shape (n_pixel, n_samples), pedestals (n_pixels, )
             waveform = waveform - dl1_calib.pedestal_offset[:, np.newaxis]
     readout = subarray.tel[telescope_id].camera.readout
     sampling_rate = readout.sampling_rate.to_value(u.GHz)
@@ -322,7 +330,7 @@ def get_dl1_lh_fit(
                         'psi': psi,
                         'length': dl1_container.length.to(u.m).value,
                         'wl': dl1_container.width.to(u.m).value/dl1_container.length.to(u.m).value,
-                        'rl': 1.0
+                        'rl': 0.0
                         }
 
     if start_parameters['length'] <= 0.02:
@@ -337,9 +345,9 @@ def get_dl1_lh_fit(
     t_max = n_samples * 1
     v_min, v_max = 0,  max(2*start_parameters['v'], 50)
     r_max = np.sqrt(geometry.pix_x**2 + geometry.pix_y**2).to(u.m).value.max()
-    rl_min, rl_max = 0.2, 5.0
-    if custom_config['lh_fit_config']['no_asymetry']:
-        rl_min, rl_max = 1.0, 1.0
+    rl_min, rl_max = -9, 9
+    if custom_config['lh_fit_config']['no_asymmetry']:
+        rl_min, rl_max = 0.0, 0.0
 
     bound_parameters = {'x_cm': (dl1_container.x.to(u.m).value
                                  - 1.0 * dl1_container.length.to(u.m).value,
