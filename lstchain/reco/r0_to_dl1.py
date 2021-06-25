@@ -338,7 +338,7 @@ def get_dl1_lh_fit(
     v_min, v_max = 0,  max(2*start_parameters['v'], 50)
     r_max = np.sqrt(geometry.pix_x**2 + geometry.pix_y**2).to(u.m).value.max()
     rl_min, rl_max = 0.2, 5.0
-    if custom_config['lh_fit_config']['no_asymetry']:
+    if custom_config['lh_fit_config']['no_asymmetry']:
         rl_min, rl_max = 1.0, 1.0
 
     bound_parameters = {'x_cm': (dl1_container.x.to(u.m).value
