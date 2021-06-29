@@ -718,7 +718,8 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
         if self.end_parameters['psi'] < -np.pi:
             self.end_parameters['psi'] += 2 * np.pi
         container.psi = self.end_parameters['psi'] * u.rad
-        container.length = ((1.0+self.end_parameters['rl'])
+        length_asy = 1+self.end_parameters['rl'] if self.end_parameters['rl'] >= 0 else 1/(1-self.end_parameters['rl'])
+        container.length = ((1.0+length_asy)
                             * self.end_parameters['length'] / 2.0) * u.m
         container.width = self.end_parameters['wl'] * container.length
 
