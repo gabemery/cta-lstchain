@@ -30,7 +30,7 @@ class DL0Fitter(ABC):
                  start_parameters, template, is_high_gain=0,
                  crosstalk=0, sigma_space=4, sigma_time=3,
                  time_before_shower=10, time_after_shower=50,
-                 bound_parameters=None):
+                 bound_parameters=None,use_weight = False):
         """
             Initialise the data and parameters used for the fitting.
 
@@ -96,6 +96,7 @@ class DL0Fitter(ABC):
                        'v': '$v$ [m/ns]',
                        'rl': 'length asymmetry'
                        }
+        self.use_weight = use_weight
 
         self.sigma_space = sigma_space
         self.sigma_time = sigma_time
@@ -656,7 +657,11 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
         # Compute the Gaussian term in the pixel likelihood for
         # low luminosity pixels
         signal = self.data
-        weight = np.ones(signal.shape)
+
+        if self.use_weight:
+            weight = 1.0+(signal/np.max(signal))
+        else:
+            weight = np.ones(signal.shape)
 
         mean = (photo_peaks
                 * templates[mask_LL][..., None])
@@ -676,19 +681,28 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
                          * templates[~mask_LL]**2))
             sigma_hat = np.sqrt((self.error[~mask_LL]**2) + sigma_hat)
 
-            log_pixel_pdf_HL = weight[~mask_LL] * log_gaussian(signal[~mask_LL], mu_hat, sigma_hat)
+            if self.use_weight:
+                log_pixel_pdf_HL = weight[~mask_LL] * log_gaussian(signal[~mask_LL], mu_hat, sigma_hat)
+            else:
+                log_pixel_pdf_HL = log_gaussian(signal[~mask_LL], mu_hat, sigma_hat)
             n_points_HL = np.sum(weight[~mask_LL])
         else:
             log_pixel_pdf_HL, n_points_HL = np.asarray([0]), 0
 
         log_poisson = np.expand_dims(log_poisson.T, axis=1)
         log_pixel_pdf_LL = ne.evaluate("log_poisson + log_gauss")
-        pixel_pdf_LL = ne.evaluate("sum(exp(log_pixel_pdf_LL), axis=2)")
+        if self.use_weight:
+            pixel_pdf_LL = np.sum(np.exp(log_pixel_pdf_LL), axis=2)
+        else:
+            pixel_pdf_LL = ne.evaluate("sum(exp(log_pixel_pdf_LL), axis=2)")
 
         mask = (pixel_pdf_LL <= 0)
         pixel_pdf_LL[mask] = 1e-320
         n_points_LL = np.sum(weight[mask_LL])
-        log_pixel_pdf_LL = weight[mask_LL] * np.log(pixel_pdf_LL)
+        if self.use_weight:
+            log_pixel_pdf_LL = weight[mask_LL] * np.log(pixel_pdf_LL)
+        else:
+            log_pixel_pdf_LL = np.log(pixel_pdf_LL)
         log_pdf = ((log_pixel_pdf_LL.sum() + log_pixel_pdf_HL.sum())
                    / (n_points_LL + n_points_HL))
 
@@ -705,7 +719,7 @@ class TimeWaveformFitter(DL0Fitter, Reconstructor):
         """
 
         self.fit(**kwargs)
-        GoF = 0  # removing the goodness of fit as it is not accurate for now
+        GoF = 0.0  # removing the goodness of fit as it is not accurate for now
         container.lhfit_goodness_of_fit = GoF
         container.lhfit_TS = self.fcn
 

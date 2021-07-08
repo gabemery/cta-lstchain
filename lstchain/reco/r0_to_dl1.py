@@ -368,6 +368,9 @@ def get_dl1_lh_fit(
                         'wl': (0.001,1.0),
                         'rl': (rl_min, rl_max)
                         }
+    use_weight = False
+    if 'use_weight' in lh_fit_config.keys():
+        use_weight = lh_fit_config['use_weight']
 
     try:
         fitter = TimeWaveformFitter(waveform=waveform,
@@ -384,7 +387,7 @@ def get_dl1_lh_fit(
                                     time_before_shower=lh_fit_config['time_before_shower'],
                                     time_after_shower=lh_fit_config['time_after_shower'],
                                     start_parameters=start_parameters,
-                                    bound_parameters=bound_parameters
+                                    bound_parameters=bound_parameters,use_weight=use_weight
                                     )
 
         fitter.predict(dl1_container, verbose=lh_fit_config['verbose'],
